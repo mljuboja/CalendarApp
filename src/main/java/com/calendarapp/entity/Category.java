@@ -17,13 +17,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+// Categories belong directly to a User, not to a Calendar.
 @Entity
-@Table(name = "calendars")
+@Table(name = "categories")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class Calendar {
+public class Category {
 
     private static final String HEX_COLOR_PATTERN = "^#[0-9A-Fa-f]{6}$";
 
@@ -40,7 +41,7 @@ public class Calendar {
     @Column(nullable = false, length = 7)
     private String color;
 
-    // Unidirectional: Calendar knows its owner, but User has no List<Calendar> back-reference.
+    // Unidirectional: Category knows its owner, but User has no List<Category> back-reference.
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)

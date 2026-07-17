@@ -1,5 +1,6 @@
 package com.calendarapp.entity;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
@@ -21,12 +22,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+// Tasks belong directly to a User. Intentionally not linked to a Calendar,
+// Category, Event, or Reminder.
 @Entity
-@Table(name = "events")
+@Table(name = "tasks")
 @Getter
 @Setter
 @NoArgsConstructor
-public class Event {
+public class Task {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -38,41 +41,24 @@ public class Event {
 
     private String description;
 
-    private String location;
+    @Column(name = "due_date")
+    private LocalDate dueDate;
 
-    @NotNull
-    @Column(name = "start_time", nullable = false)
-    private LocalDateTime startTime;
-
-    // Business rule "endTime must be after startTime" is enforced later
-    // (service layer), not with Bean Validation here.
-    @NotNull
-    @Column(name = "end_time", nullable = false)
-    private LocalDateTime endTime;
-
-    @Column(name = "all_day", nullable = false)
-    private boolean allDay = false;
-
-    // Occurrences are generated on demand for a requested date range,
-    // never stored as individual rows.
     @NotNull
     @Enumerated(EnumType.STRING)
-    @Column(name = "recurrence_type", nullable = false, length = 20)
-    private RecurrenceType recurrenceType = RecurrenceType.NONE;
+    @Column(nullable = false, length = 10)
+    private Priority priority;
 
-    @Column(name = "reminder_offset_minutes")
-    private Integer reminderOffsetMinutes;
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private TaskStatus status;
 
-    // Unidirectional: Event knows its Calendar, but Calendar has no List<Event> back-reference.
+    // Unidirectional: Task knows its owner, but User has no List<Task> back-reference.
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "calendar_id", nullable = false)
-    private Calendar calendar;
-
-    // Optional; Category ownership must match the event's owner (enforced later, in the service layer).
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id")
-    private Category category;
+    @JoinColumn(name = "user_id", nullable = false)
+    private User owner;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

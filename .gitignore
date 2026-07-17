@@ -1,6 +1,13 @@
 ### Maven ###
 target/
 
+### Environment ###
+.env
+
+### IntelliJ IDEA (project files not shared via Git) ###
+.idea/
+*.iml
+
 ### IntelliJ IDEA ###
 out/
 !**/src/main/**/out/
