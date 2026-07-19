@@ -44,8 +44,7 @@ public class Event {
     @Column(name = "start_time", nullable = false)
     private LocalDateTime startTime;
 
-    // Business rule "endTime must be after startTime" is enforced later
-    // (service layer), not with Bean Validation here.
+
     @NotNull
     @Column(name = "end_time", nullable = false)
     private LocalDateTime endTime;
@@ -53,8 +52,7 @@ public class Event {
     @Column(name = "all_day", nullable = false)
     private boolean allDay = false;
 
-    // Occurrences are generated on demand for a requested date range,
-    // never stored as individual rows.
+
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(name = "recurrence_type", nullable = false, length = 20)
@@ -63,13 +61,13 @@ public class Event {
     @Column(name = "reminder_offset_minutes")
     private Integer reminderOffsetMinutes;
 
-    // Unidirectional: Event knows its Calendar, but Calendar has no List<Event> back-reference.
+    // Unidirectional
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "calendar_id", nullable = false)
     private Calendar calendar;
 
-    // Optional; Category ownership must match the event's owner (enforced later, in the service layer).
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     private Category category;

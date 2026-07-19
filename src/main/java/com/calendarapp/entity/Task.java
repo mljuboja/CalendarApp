@@ -54,7 +54,7 @@ public class Task {
     @Column(nullable = false, length = 20)
     private TaskStatus status;
 
-    // Unidirectional: Task knows its owner, but User has no List<Task> back-reference.
+    // Unidirectional
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)

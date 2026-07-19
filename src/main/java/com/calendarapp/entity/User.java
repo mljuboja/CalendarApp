@@ -41,7 +41,7 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
-    // Never store a raw password; always a BCrypt hash.
+    // to make sure actual passowrd isn't stored, only in BCrypt hash
     @NotBlank
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
