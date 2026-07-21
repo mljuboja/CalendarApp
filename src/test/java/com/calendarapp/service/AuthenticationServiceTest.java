@@ -17,17 +17,22 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import com.calendarapp.configuration.JwtProperties;
 import com.calendarapp.dto.RegistrationRequest;
 import com.calendarapp.dto.RegistrationResponse;
 import com.calendarapp.entity.User;
 import com.calendarapp.exception.DuplicateEmailException;
 import com.calendarapp.repository.UserRepository;
+import com.calendarapp.security.JwtService;
 
 /**
  * Unit tests for {@link AuthenticationService#register}, per Phase 3B scope.
  * {@link UserRepository} is mocked; no Spring context and no PostgreSQL are
  * required. The real {@link BCryptPasswordEncoder} is used (not mocked) so
- * the hashing assertions exercise genuine BCrypt output.
+ * the hashing assertions exercise genuine BCrypt output. {@link JwtService}
+ * and {@link JwtProperties} are mocked here since {@code register()} never
+ * uses them — login-specific behavior is covered separately in
+ * {@link AuthenticationServiceLoginTest}.
  */
 class AuthenticationServiceTest {
 
@@ -39,7 +44,8 @@ class AuthenticationServiceTest {
     void setUp() {
         userRepository = mock(UserRepository.class);
         passwordEncoder = new BCryptPasswordEncoder();
-        authenticationService = new AuthenticationService(userRepository, passwordEncoder);
+        authenticationService = new AuthenticationService(
+                userRepository, passwordEncoder, mock(JwtService.class), mock(JwtProperties.class));
     }
 
     @Test

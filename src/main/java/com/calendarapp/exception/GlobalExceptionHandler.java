@@ -11,9 +11,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
  * Translates exceptions into the consistent {@link ErrorResponse} shape.
- * Scoped to what registration (Phase 3B) needs: duplicate-email conflicts and
- * Bean Validation failures. No JWT/authentication exceptions are handled here
- * yet — that is later-phase work.
+ * Scoped to what registration (Phase 3B) and login (Phase 3C) need:
+ * duplicate-email conflicts, invalid login credentials, and Bean Validation
+ * failures. No JWT-request-authentication exceptions are handled here yet —
+ * that is later-phase work.
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -25,6 +26,15 @@ public class GlobalExceptionHandler {
                 HttpStatus.CONFLICT.getReasonPhrase(),
                 ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidCredentials(InvalidCredentialsException ex) {
+        ErrorResponse body = new ErrorResponse(
+                HttpStatus.UNAUTHORIZED.value(),
+                HttpStatus.UNAUTHORIZED.getReasonPhrase(),
+                ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
