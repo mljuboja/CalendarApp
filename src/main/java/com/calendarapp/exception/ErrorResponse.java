@@ -5,12 +5,9 @@ import java.util.List;
 
 import lombok.Getter;
 
-/**
- * Consistent JSON error body returned by {@link GlobalExceptionHandler} for
- * every handled exception. Never carries stack traces or other internal
- * exception details — only a status, a human-readable message, and (for
- * validation failures) per-field details.
- */
+// The JSON shape we always return when something goes wrong. No stack traces or
+// other internal details - just a status code, a message, and (for validation
+// errors) which fields were invalid.
 @Getter
 public class ErrorResponse {
 

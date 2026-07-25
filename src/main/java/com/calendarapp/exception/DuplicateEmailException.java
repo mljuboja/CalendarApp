@@ -1,10 +1,7 @@
 package com.calendarapp.exception;
 
-/**
- * Thrown when a registration request uses an email that already belongs to
- * an existing {@link com.calendarapp.entity.User}. Mapped to {@code 409 Conflict}
- * by {@link GlobalExceptionHandler}.
- */
+// Thrown when someone tries to register with an email that's already in use.
+// GlobalExceptionHandler turns this into a 409 Conflict response.
 public class DuplicateEmailException extends RuntimeException {
 
     public DuplicateEmailException(String email) {

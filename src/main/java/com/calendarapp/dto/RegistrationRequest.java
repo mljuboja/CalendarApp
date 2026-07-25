@@ -8,10 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- * Request payload for {@code POST /api/auth/register}. Never used as a
- * persistence type — the service layer maps this into a {@link com.calendarapp.entity.User}.
- */
+// What the client sends to POST /api/auth/register.
 @Getter
 @Setter
 @NoArgsConstructor

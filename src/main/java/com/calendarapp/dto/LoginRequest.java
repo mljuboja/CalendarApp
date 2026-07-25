@@ -7,12 +7,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- * Request payload for {@code POST /api/auth/login}. Intentionally only
- * enforces non-blank/valid-format rules here — registration-time password
- * policy (e.g. minimum length) must not block an existing user from logging
- * in if that policy changes later.
- */
+// What the client sends to POST /api/auth/login.
+// No minimum password length check here on purpose - we just need to verify
+// whatever password the user already has, not enforce new-password rules.
 @Getter
 @Setter
 @NoArgsConstructor

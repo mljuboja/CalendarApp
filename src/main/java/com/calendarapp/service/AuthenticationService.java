@@ -16,12 +16,9 @@ import com.calendarapp.exception.InvalidCredentialsException;
 import com.calendarapp.repository.UserRepository;
 import com.calendarapp.security.JwtService;
 
-/**
- * Phase 3B: registration. Phase 3C: login + JWT issuance. Request-time JWT
- * authentication (a filter that would enforce tokens on protected endpoints)
- * is still out of scope — nothing here changes how incoming requests are
- * authorized; it only issues a token after verifying credentials.
- */
+// Handles registering new users and logging existing ones in.
+// There's no filter checking JWTs on requests yet - login here just verifies the
+// password and hands back a token.
 @Service
 public class AuthenticationService {
 
@@ -43,14 +40,8 @@ public class AuthenticationService {
         this.jwtProperties = jwtProperties;
     }
 
-    /**
-     * Registers a new user: normalizes the email, rejects duplicates, hashes
-     * the password with the existing BCrypt {@link PasswordEncoder} bean, and
-     * persists the new {@link User}.
-     *
-     * @throws DuplicateEmailException if the normalized email already belongs
-     *                                  to an existing user
-     */
+    // Registers a new user. Normalizes the email, checks it isn't already taken,
+    // hashes the password, then saves the user.
     public RegistrationResponse register(RegistrationRequest request) {
         String normalizedEmail = normalizeEmail(request.getEmail());
 
@@ -73,19 +64,10 @@ public class AuthenticationService {
                 savedUser.getEmail());
     }
 
-    /**
-     * Authenticates a user by email and password, issuing a JWT on success.
-     *
-     * <p>Unknown email and incorrect password are indistinguishable to the
-     * caller — both throw {@link InvalidCredentialsException} with the same
-     * generic message, so login can never be used to enumerate registered
-     * emails. The user is never saved or modified, and no server-side
-     * session is created; the JWT is generated only after the submitted
-     * password has been verified against the stored hash.
-     *
-     * @throws InvalidCredentialsException if the email is unknown or the
-     *                                       password does not match
-     */
+    // Logs a user in: looks them up by (normalized) email and checks the password
+    // against the stored hash. If either the email doesn't exist or the password is
+    // wrong, we throw the same exception with the same message so we don't give away
+    // which one it was. Only generates the JWT after the password check passes.
     public LoginResponse login(LoginRequest request) {
         String normalizedEmail = normalizeEmail(request.getEmail());
 
@@ -108,6 +90,7 @@ public class AuthenticationService {
                 user.getEmail());
     }
 
+    // Emails are stored lowercase/trimmed, so we normalize here too before any lookup.
     private static String normalizeEmail(String email) {
         return email.trim().toLowerCase(Locale.ROOT);
     }

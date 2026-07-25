@@ -25,15 +25,10 @@ import com.calendarapp.exception.DuplicateEmailException;
 import com.calendarapp.repository.UserRepository;
 import com.calendarapp.security.JwtService;
 
-/**
- * Unit tests for {@link AuthenticationService#register}, per Phase 3B scope.
- * {@link UserRepository} is mocked; no Spring context and no PostgreSQL are
- * required. The real {@link BCryptPasswordEncoder} is used (not mocked) so
- * the hashing assertions exercise genuine BCrypt output. {@link JwtService}
- * and {@link JwtProperties} are mocked here since {@code register()} never
- * uses them — login-specific behavior is covered separately in
- * {@link AuthenticationServiceLoginTest}.
- */
+// Tests for AuthenticationService.register(). UserRepository is mocked, but we use
+// the real BCryptPasswordEncoder so the hash assertions are testing real BCrypt output.
+// JwtService/JwtProperties are just mocked here since register() doesn't use them -
+// login is covered separately in AuthenticationServiceLoginTest.
 class AuthenticationServiceTest {
 
     private UserRepository userRepository;
@@ -140,8 +135,7 @@ class AuthenticationServiceTest {
         assertThat(response.getUserId()).isNotNull();
         assertThat(response.getEmail()).isEqualTo("jane@example.com");
 
-        // Structural guarantee: RegistrationResponse has no way to carry a
-        // password hash at all, regardless of what the service does.
+        // Double-checking RegistrationResponse doesn't even have a field for this.
         assertThat(response.getClass().getDeclaredFields())
                 .extracting(Field::getName)
                 .doesNotContain("passwordHash", "password");

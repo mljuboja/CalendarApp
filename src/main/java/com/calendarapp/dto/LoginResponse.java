@@ -3,11 +3,8 @@ package com.calendarapp.dto;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
-/**
- * Response payload for {@code POST /api/auth/login}. Deliberately excludes
- * {@code passwordHash}, the JWT secret, and any internal security
- * configuration — only the issued token and public user details.
- */
+// What we send back after a successful login: the JWT plus some basic user info.
+// No password/hash or JWT secret included.
 @Getter
 @AllArgsConstructor
 public class LoginResponse {

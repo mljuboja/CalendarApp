@@ -1,12 +1,8 @@
 package com.calendarapp.exception;
 
-/**
- * Thrown when login fails, for either an unknown email or an incorrect
- * password. Always carries the same generic message so the client-facing
- * response never reveals which of the two actually failed — this prevents
- * using login as an oracle to enumerate registered email addresses. Mapped
- * to {@code 401 Unauthorized} by {@link GlobalExceptionHandler}.
- */
+// Thrown when login fails, whether the email doesn't exist or the password is wrong.
+// We use the same exception/message for both so we don't tell an attacker which one it was.
+// GlobalExceptionHandler turns this into a 401 Unauthorized response.
 public class InvalidCredentialsException extends RuntimeException {
 
     private static final String GENERIC_MESSAGE = "Invalid email or password";

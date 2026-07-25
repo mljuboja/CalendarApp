@@ -24,17 +24,11 @@ import com.calendarapp.exception.InvalidCredentialsException;
 import com.calendarapp.service.AuthenticationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-/**
- * Focused MVC test for {@code POST /api/auth/login} only. Imports the
- * project's real {@link SecurityConfig} (rather than disabling security
- * filters) so the test exercises the actual permit-all, CSRF-disabled
- * filter chain that will run in production, and relies on the real
- * {@code GlobalExceptionHandler} (auto-detected by {@code @WebMvcTest} as a
- * {@code @ControllerAdvice}) so the error response shape is verified end to
- * end rather than bypassed. {@link AuthenticationService} is mocked — only
- * the web layer (controller, security config, exception handling, JSON
- * (de)serialization) is under test here.
- */
+// MVC test for just the POST /api/auth/login endpoint.
+// Imports the real SecurityConfig instead of turning off security filters, so this
+// actually runs through the real permit-all/CSRF-disabled setup. GlobalExceptionHandler
+// gets picked up automatically too, so error responses are the real ones, not faked.
+// AuthenticationService itself is mocked - we're only testing the web layer here.
 @WebMvcTest(AuthController.class)
 @Import(SecurityConfig.class)
 class AuthControllerLoginTest {

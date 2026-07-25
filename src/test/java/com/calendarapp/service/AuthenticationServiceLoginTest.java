@@ -24,18 +24,12 @@ import com.calendarapp.exception.InvalidCredentialsException;
 import com.calendarapp.repository.UserRepository;
 import com.calendarapp.security.JwtService;
 
-/**
- * Unit tests for {@link AuthenticationService#login}, kept separate from
- * {@link AuthenticationServiceTest} (registration) so each test class stays
- * focused on one method. {@link UserRepository} is mocked; no Spring context
- * and no PostgreSQL are required. The real {@link BCryptPasswordEncoder} and
- * a real {@link JwtService}/{@link JwtProperties} pair are used (not mocked)
- * so password verification and JWT claims are genuinely exercised.
- */
+// Tests for AuthenticationService.login(), kept in its own file separate from the
+// registration tests. UserRepository is mocked, but we use a real PasswordEncoder
+// and a real JwtService/JwtProperties pair so the password check and the JWT claims
+// are actually verified, not just stubbed out.
 class AuthenticationServiceLoginTest {
 
-    // Random-looking, well over the 32-byte minimum, and doesn't match any of
-    // JwtProperties' "obviously insecure" placeholder keywords.
     private static final String TEST_SECRET =
             "a3d7f1c9e2b4d6f8a1c3e5b7d9f2a4c6e8b0d3f5a7c9e1b3d5f7a9c1e3b5d7f9";
     private static final long EXPIRATION_MS = 60L * 60 * 1000;
@@ -51,7 +45,7 @@ class AuthenticationServiceLoginTest {
     void setUp() {
         userRepository = mock(UserRepository.class);
         passwordEncoder = new BCryptPasswordEncoder();
-        JwtProperties jwtProperties = new JwtProperties(TEST_SECRET, String.valueOf(EXPIRATION_MS));
+        JwtProperties jwtProperties = new JwtProperties(TEST_SECRET, EXPIRATION_MS);
         jwtService = new JwtService(jwtProperties);
         authenticationService = new AuthenticationService(userRepository, passwordEncoder, jwtService, jwtProperties);
         storedHash = passwordEncoder.encode(RAW_PASSWORD);
@@ -126,8 +120,7 @@ class AuthenticationServiceLoginTest {
 
         authenticationService.login(new LoginRequest("jane@example.com", RAW_PASSWORD));
 
-        // Structural guarantee: LoginResponse has no way to carry a password
-        // hash at all, regardless of what the service does.
+        // Double-checking LoginResponse doesn't even have a field for this.
         assertThat(LoginResponse.class.getDeclaredFields())
                 .extracting(Field::getName)
                 .doesNotContain("passwordHash", "password");

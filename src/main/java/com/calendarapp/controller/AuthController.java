@@ -15,11 +15,7 @@ import com.calendarapp.dto.RegistrationRequest;
 import com.calendarapp.dto.RegistrationResponse;
 import com.calendarapp.service.AuthenticationService;
 
-/**
- * Phase 3B: registration. Phase 3C: login + JWT issuance. No JWT request
- * filter, no protected endpoints, and no other endpoints exist here yet —
- * those are later-phase work.
- */
+// Endpoints for signing up and logging in. Nothing is protected/secured yet.
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {

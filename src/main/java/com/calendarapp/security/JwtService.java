@@ -11,17 +11,9 @@ import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 
-/**
- * Standalone JWT utility: generates tokens, validates them, and extracts claims.
- *
- * <p>This class is intentionally <b>not</b> wired into Spring Security yet — there
- * is no authentication filter, no {@code UserDetailsService}, and nothing here
- * enforces JWTs on any request. That is later-phase work.
- *
- * <p>Tokens only ever carry non-sensitive identifiers: the user's email as the
- * subject and their user ID as a claim. Passwords or other sensitive data are
- * never placed in a token.
- */
+// Handles creating and reading JWTs. This isn't hooked into Spring Security yet,
+// so nothing actually checks tokens on incoming requests - that comes later.
+// Tokens only store the user's email and id, never the password.
 @Service
 public class JwtService {
 
@@ -33,12 +25,7 @@ public class JwtService {
         this.jwtProperties = jwtProperties;
     }
 
-    /**
-     * Generates a signed JWT for the given user.
-     *
-     * @param email  the user's email — used as the token subject
-     * @param userId the user's ID — stored as a custom claim
-     */
+    // Builds a signed JWT for the given user. Email is the subject, userId is a custom claim.
     public String generateToken(String email, Long userId) {
         Date issuedAt = new Date();
         Date expiration = new Date(issuedAt.getTime() + jwtProperties.getExpirationMilliseconds());
@@ -52,13 +39,8 @@ public class JwtService {
                 .compact();
     }
 
-    /**
-     * Parses and verifies the token's signature, returning all claims.
-     *
-     * @throws JwtException            if the token is malformed, expired, or the
-     *                                  signature does not match
-     * @throws IllegalArgumentException if the token is null/blank
-     */
+    // Checks the token's signature and returns its claims. Throws if the token is
+    // malformed, expired, or was signed with a different key.
     public Claims extractAllClaims(String token) {
         return Jwts.parser()
                 .verifyWith(jwtProperties.getSigningKey())
@@ -79,10 +61,7 @@ public class JwtService {
         return extractAllClaims(token).getExpiration();
     }
 
-    /**
-     * Returns {@code true} only if the signature is valid and the token is not
-     * expired and is otherwise well-formed. Never throws.
-     */
+    // True only if the token has a valid signature and hasn't expired. Never throws.
     public boolean isTokenValid(String token) {
         try {
             return !isTokenExpired(token);
@@ -91,16 +70,9 @@ public class JwtService {
         }
     }
 
-    /**
-     * Returns whether the token's expiration claim is in the past. Requires a
-     * valid signature to trust the claim; propagates {@link JwtException} if the
-     * token cannot be parsed/verified at all for any other reason (e.g. bad
-     * signature, malformed token).
-     *
-     * <p>Note: the underlying parser already rejects expired tokens by throwing
-     * {@link ExpiredJwtException} instead of returning claims, so that case is
-     * handled explicitly here.
-     */
+    // Checks if the token's expiration date is in the past.
+    // The JWT library throws ExpiredJwtException instead of just returning the claims
+    // for an expired token, so we catch that case here.
     public boolean isTokenExpired(String token) {
         try {
             return extractExpiration(token).before(new Date());

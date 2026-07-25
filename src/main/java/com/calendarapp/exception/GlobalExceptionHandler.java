@@ -9,13 +9,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-/**
- * Translates exceptions into the consistent {@link ErrorResponse} shape.
- * Scoped to what registration (Phase 3B) and login (Phase 3C) need:
- * duplicate-email conflicts, invalid login credentials, and Bean Validation
- * failures. No JWT-request-authentication exceptions are handled here yet —
- * that is later-phase work.
- */
+// Catches exceptions thrown by controllers and turns them into a consistent
+// JSON error response instead of the default Spring error page.
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -51,6 +46,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 
+    // Turns one Spring FieldError into our own simple field/message pair.
     private static ErrorResponse.FieldErrorDetail toFieldErrorDetail(FieldError fieldError) {
         return new ErrorResponse.FieldErrorDetail(fieldError.getField(), fieldError.getDefaultMessage());
     }

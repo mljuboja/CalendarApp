@@ -9,28 +9,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
-/**
- * Phase 3A: security infrastructure only — no endpoints are secured yet.
- *
- * <p>There is no authentication filter, no {@code UserDetailsService}, and JWTs
- * are not enforced anywhere in this chain. All of that belongs to a later phase.
- * This class only wires up the pieces a stateless, token-based REST API will
- * eventually need:
- *
- * <ul>
- *   <li>CSRF is disabled. CSRF protection exists to stop a malicious site from
- *       making a victim's browser "ride along" on an automatically-attached
- *       session cookie. This API never authenticates via cookies — every future
- *       request will carry its own JWT explicitly in an {@code Authorization}
- *       header — so there is no ambient credential for CSRF to protect.</li>
- *   <li>Sessions are stateless. No {@code HttpSession} is created or read; the
- *       server keeps no per-user server-side state between requests.</li>
- *   <li>Form login and HTTP Basic are disabled — neither fits a JSON REST API
- *       that will authenticate via JWT.</li>
- *   <li>All requests are permitted for now. Locking down individual endpoints
- *       is deferred until authentication (login/JWT filter) actually exists.</li>
- * </ul>
- */
+// Basic Spring Security setup.
+// There's no login filter checking JWTs yet, so every endpoint is still open for now.
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -38,19 +18,20 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                // Not using cookies for auth, so we don't need CSRF protection.
                 .csrf(csrf -> csrf.disable())
+                // No server-side sessions - each request should carry its own auth info (JWT, later).
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // This is a REST API, so skip the default login page and basic auth popup.
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
+                // Allow everything for now until login/JWT checking is added.
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
 
         return http.build();
     }
 
-    /**
-     * Not used yet — registration (a later phase) will hash passwords with this
-     * before saving {@link com.calendarapp.entity.User#getPasswordHash()}.
-     */
+    // Used to hash passwords when saving users and to check them on login.
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();

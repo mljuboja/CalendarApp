@@ -11,15 +11,10 @@ import com.calendarapp.configuration.JwtProperties;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 
-/**
- * Unit tests for {@link JwtService} only — no Spring context, no authentication
- * logic. Verifies token generation, claim extraction, expiration handling, and
- * invalid-signature detection, per Phase 3A scope.
- */
+// Tests for JwtService: making tokens, reading claims back out, and catching
+// expired/invalid/tampered tokens.
 class JwtServiceTest {
 
-    // Random-looking, well over the 32-byte minimum, and doesn't match any of
-    // JwtProperties' "obviously insecure" placeholder keywords.
     private static final String TEST_SECRET =
             "f4a1c9e27b6d3081f5a9c4e6b2d7108f3c5a8e1b4d6f9c2a7e0b3d5f8a1c4e6b";
     private static final String OTHER_SECRET =
@@ -30,7 +25,7 @@ class JwtServiceTest {
 
     @BeforeEach
     void setUp() {
-        JwtProperties jwtProperties = new JwtProperties(TEST_SECRET, String.valueOf(ONE_HOUR_MS));
+        JwtProperties jwtProperties = new JwtProperties(TEST_SECRET, ONE_HOUR_MS);
         jwtService = new JwtService(jwtProperties);
     }
 
@@ -63,7 +58,7 @@ class JwtServiceTest {
 
     @Test
     void expiredTokenIsDetectedAsInvalid() throws InterruptedException {
-        JwtProperties shortLivedProperties = new JwtProperties(TEST_SECRET, "1"); // 1ms expiration
+        JwtProperties shortLivedProperties = new JwtProperties(TEST_SECRET, 1); // 1ms expiration
         JwtService shortLivedService = new JwtService(shortLivedProperties);
 
         String token = shortLivedService.generateToken("user@example.com", 1L);
@@ -87,7 +82,7 @@ class JwtServiceTest {
 
     @Test
     void tokenSignedWithADifferentKeyIsRejected() {
-        JwtProperties otherKeyProperties = new JwtProperties(OTHER_SECRET, String.valueOf(ONE_HOUR_MS));
+        JwtProperties otherKeyProperties = new JwtProperties(OTHER_SECRET, ONE_HOUR_MS);
         JwtService otherKeyService = new JwtService(otherKeyProperties);
 
         String tokenFromOtherKey = otherKeyService.generateToken("user@example.com", 1L);
