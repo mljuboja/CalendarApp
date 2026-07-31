@@ -13,16 +13,12 @@ import com.calendarapp.repository.EventRepository;
 import com.calendarapp.repository.TaskRepository;
 import com.calendarapp.repository.UserRepository;
 
-/**
- * Verifies the backend foundation end-to-end against a real PostgreSQL database:
- * Spring context starts, the datasource connects, Flyway applies
- * {@code V1__init_schema.sql}, and Hibernate validates entities against that schema.
- *
- * <p><b>Requires PostgreSQL to be running</b> (e.g. {@code docker compose up -d})
- * and a valid {@code .env} sourced into the environment. This test is tagged
- * "integration" and is excluded from the default {@code mvn test} run (see pom.xml).
- * Run it explicitly with: {@code mvn test -DexcludedGroups=}
- */
+// This test makes sure the app can actually connect to a real Postgres database,
+// the tables get created, and everything is set up right.
+//
+// You need Postgres running for this to work (docker compose up -d) and a .env file.
+// This is an "integration" test so it does not run with the normal mvn test command.
+// To run it: mvn test -DexcludedGroups=
 @Tag("integration")
 @SpringBootTest
 class PostgresIntegrationTests {
@@ -43,9 +39,9 @@ class PostgresIntegrationTests {
     private TaskRepository taskRepository;
 
     @Test
-    void applicationContextStartsAndRepositoriesAreWired() {
-        // If the context failed to start (bad DB connection, Flyway migration error,
-        // or Hibernate schema-validation mismatch), this test never reaches this line.
+    void appStartsAndRepositoriesWork() {
+        // If something went wrong on startup (like the database not connecting),
+        // the test will fail before it even gets here.
         assertThat(userRepository).isNotNull();
         assertThat(calendarRepository).isNotNull();
         assertThat(categoryRepository).isNotNull();
@@ -54,9 +50,8 @@ class PostgresIntegrationTests {
     }
 
     @Test
-    void repositoriesCanQueryTheValidatedSchema() {
-        // Exercises a real query against every table Flyway created, confirming
-        // Hibernate's schema validation matches reality (not just that beans exist).
+    void repositoriesCanGetData() {
+        // Just checking we can actually pull data back from each table.
         assertThat(userRepository.findAll()).isNotNull();
         assertThat(calendarRepository.findAll()).isNotNull();
         assertThat(categoryRepository.findAll()).isNotNull();

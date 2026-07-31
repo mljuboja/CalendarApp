@@ -19,7 +19,7 @@ class JwtServiceTest {
             "f4a1c9e27b6d3081f5a9c4e6b2d7108f3c5a8e1b4d6f9c2a7e0b3d5f8a1c4e6b";
     private static final String OTHER_SECRET =
             "9b3d6f1a4c7e0b2d5f8a1c4e6b9d3f0a7c2e5b8d1f4a7c0e3b6d9f2a5c8e1b4d";
-    private static final long ONE_HOUR_MS = 60L * 60 * 1000;
+    private static final long ONE_HOUR_MS = 3_600_000L;
 
     private JwtService jwtService;
 
@@ -30,7 +30,7 @@ class JwtServiceTest {
     }
 
     @Test
-    void generatesTokenAndExtractsEmailAndUserIdClaim() {
+    void makesTokenAndGetsEmailAndUserId() {
         String token = jwtService.generateToken("user@example.com", 42L);
 
         assertThat(token).isNotBlank();
@@ -58,18 +58,18 @@ class JwtServiceTest {
 
     @Test
     void expiredTokenIsDetectedAsInvalid() throws InterruptedException {
-        JwtProperties shortLivedProperties = new JwtProperties(TEST_SECRET, 1); // 1ms expiration
-        JwtService shortLivedService = new JwtService(shortLivedProperties);
+        JwtProperties shortProperties = new JwtProperties(TEST_SECRET, 1); // expires at 1 ms
+        JwtService shortService = new JwtService(shortProperties);
 
-        String token = shortLivedService.generateToken("user@example.com", 1L);
-        Thread.sleep(25); // ensure real clock time passes the 1ms expiration window
+        String token = shortService.generateToken("user@example.com", 1L);
+        Thread.sleep(25); // makes sure clock time passes the 1 ms expiration
 
-        assertThat(shortLivedService.isTokenExpired(token)).isTrue();
-        assertThat(shortLivedService.isTokenValid(token)).isFalse();
+        assertThat(shortService.isTokenExpired(token)).isTrue();
+        assertThat(shortService.isTokenValid(token)).isFalse();
     }
 
     @Test
-    void tamperedTokenFailsSignatureValidation() {
+    void messedUpTokenFailsSignatureValidation() {
         String token = jwtService.generateToken("user@example.com", 1L);
         // Flip the last two characters of the signature segment to corrupt it.
         String tamperedToken = token.substring(0, token.length() - 2)

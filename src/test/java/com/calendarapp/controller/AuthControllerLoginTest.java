@@ -63,7 +63,7 @@ class AuthControllerLoginTest {
     }
 
     @Test
-    void invalidCredentialsReturns401WithConsistentErrorBody() throws Exception {
+    void wrongCredentialsReturns401WithError() throws Exception {
         LoginRequest request = new LoginRequest("jane@example.com", "wrong-password");
 
         given(authenticationService.login(any(LoginRequest.class)))
@@ -79,7 +79,7 @@ class AuthControllerLoginTest {
     }
 
     @Test
-    void invalidRequestBodyReturns400WithFieldErrors() throws Exception {
+    void wrongRequestReturns400WithErrors() throws Exception {
         String blankFieldsJson = "{\"email\":\"\",\"password\":\"\"}";
 
         mockMvc.perform(post("/api/auth/login")
