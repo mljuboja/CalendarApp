@@ -21,16 +21,24 @@ import com.calendarapp.configuration.SecurityConfig;
 import com.calendarapp.dto.LoginRequest;
 import com.calendarapp.dto.LoginResponse;
 import com.calendarapp.exception.InvalidCredentialsException;
+import com.calendarapp.repository.UserRepository;
+import com.calendarapp.security.JwtAuthenticationEntryPoint;
+import com.calendarapp.security.JwtService;
 import com.calendarapp.service.AuthenticationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 // MVC test for just the POST /api/auth/login endpoint.
 // Imports the real SecurityConfig instead of turning off security filters, so this
-// actually runs through the real permit-all/CSRF-disabled setup. GlobalExceptionHandler
+// actually runs through the real permit-all/CSRF-disabled/JWT setup. GlobalExceptionHandler
 // gets picked up automatically too, so error responses are the real ones, not faked.
 // AuthenticationService itself is mocked - we're only testing the web layer here.
+// UserRepository/JwtService are mocked too, since the WebMvcTest slice picks up
+// JwtAuthenticationFilter (it's a Filter bean) which needs them to construct -
+// these requests don't send a token, so the filter never actually calls them.
+// JwtAuthenticationEntryPoint is imported explicitly since a plain @Component
+// isn't auto-detected by the WebMvcTest slice the way controllers/filters are.
 @WebMvcTest(AuthController.class)
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, JwtAuthenticationEntryPoint.class})
 class AuthControllerLoginTest {
 
     @Autowired
@@ -41,6 +49,12 @@ class AuthControllerLoginTest {
 
     @MockBean
     private AuthenticationService authenticationService;
+
+    @MockBean
+    private UserRepository userRepository;
+
+    @MockBean
+    private JwtService jwtService;
 
     @Test
     void validLoginReturns200WithTokenAndNoPasswordHash() throws Exception {
