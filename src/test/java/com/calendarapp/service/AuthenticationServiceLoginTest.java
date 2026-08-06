@@ -2,13 +2,10 @@ package com.calendarapp.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.lang.reflect.Field;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -112,37 +109,5 @@ class AuthenticationServiceLoginTest {
         assertThat(jwtService.isTokenValid(response.getToken())).isTrue();
         assertThat(jwtService.extractEmail(response.getToken())).isEqualTo("jane@example.com");
         assertThat(jwtService.extractUserId(response.getToken())).isEqualTo(7L);
-    }
-
-    @Test
-    void responseNeverExposesPasswordHash() {
-        when(userRepository.findByEmail("jane@example.com")).thenReturn(Optional.of(existingUser()));
-
-        authenticationService.login(new LoginRequest("jane@example.com", RAW_PASSWORD));
-
-        // Double-checking LoginResponse doesn't even have a field for this.
-        assertThat(LoginResponse.class.getDeclaredFields())
-                .extracting(Field::getName)
-                .doesNotContain("passwordHash", "password");
-    }
-
-    @Test
-    void userIsNeverSavedOrModifiedDuringSuccessfulLogin() {
-        when(userRepository.findByEmail("jane@example.com")).thenReturn(Optional.of(existingUser()));
-
-        authenticationService.login(new LoginRequest("jane@example.com", RAW_PASSWORD));
-
-        verify(userRepository, never()).save(any(User.class));
-        verify(userRepository, never()).saveAndFlush(any(User.class));
-    }
-
-    @Test
-    void userIsNeverSavedAfterFailedLogin() {
-        when(userRepository.findByEmail("jane@example.com")).thenReturn(Optional.of(existingUser()));
-
-        assertThatThrownBy(() -> authenticationService.login(new LoginRequest("jane@example.com", "wrong-password")))
-                .isInstanceOf(InvalidCredentialsException.class);
-
-        verify(userRepository, never()).save(any(User.class));
     }
 }

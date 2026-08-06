@@ -1,5 +1,9 @@
 # Calendar App — Design Plan (Approved)
 
+> This document records the original Phase 1 plan. Some implementation decisions
+> changed during development. `PROGRESS.md`, `README.md`, and the current
+> repository are the source of truth for the implemented application.
+
 This document captures the finalized Phase 1 decisions before moving into implementation.
 
 ## Tech stack

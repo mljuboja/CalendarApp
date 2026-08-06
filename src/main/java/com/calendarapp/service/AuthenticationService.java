@@ -16,9 +16,9 @@ import com.calendarapp.exception.InvalidCredentialsException;
 import com.calendarapp.repository.UserRepository;
 import com.calendarapp.security.JwtService;
 
-// Handles registering new users and logging existing ones in.
-// There's no filter checking JWTs on requests yet - login here just verifies the
-// password and hands back a token.
+// Handles registering new users and logging existing ones in. Login verifies
+// the password and hands back a JWT; JwtAuthenticationFilter checks that token
+// on later requests.
 @Service
 public class AuthenticationService {
 

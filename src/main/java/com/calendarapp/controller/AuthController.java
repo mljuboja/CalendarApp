@@ -15,7 +15,8 @@ import com.calendarapp.dto.RegistrationRequest;
 import com.calendarapp.dto.RegistrationResponse;
 import com.calendarapp.service.AuthenticationService;
 
-// Endpoints for signing up and logging in. Nothing is protected/secured yet.
+// Endpoints for signing up and logging in - the only endpoints that don't
+// require a JWT (see SecurityConfig).
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {

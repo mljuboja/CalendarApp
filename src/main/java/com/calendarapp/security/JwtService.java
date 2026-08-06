@@ -11,8 +11,8 @@ import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 
-// Handles creating and reading JWTs. This isn't hooked into Spring Security yet,
-// so nothing actually checks tokens on incoming requests - that comes later.
+// Handles creating and reading JWTs. Used by AuthenticationService to issue
+// tokens and by JwtAuthenticationFilter to read them on incoming requests.
 // Tokens only store the user's email and id, never the password.
 @Service
 public class JwtService {
