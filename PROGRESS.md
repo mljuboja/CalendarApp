@@ -1,7 +1,7 @@
 # Project Progress
 
 This document is the authoritative status document for **Daymark**. It reflects
-the current state of the project as of the completion of Phase 3D.
+the current state of the project as of the completion of Phase 4A.
 
 ---
 
@@ -206,6 +206,57 @@ password reset, or email verification.
 
 ---
 
+## Phase 4A — Calendar CRUD
+
+Phase 4A completed:
+
+- `CalendarRequest` DTO (`name`, `color`) — `name` required with a max length
+  of 100 characters, `color` required and validated against the same 6-digit
+  hex pattern (`^#[0-9A-Fa-f]{6}$`) already enforced by the `Calendar` entity
+  and the Flyway `CHECK` constraint
+- `CalendarResponse` DTO (`id`, `name`, `color` only — no owner/user info)
+- `CalendarService` — create, list, get, update, delete, all scoped to the
+  authenticated user
+- `CalendarRepository.findByIdAndOwnerId(id, ownerId)` added alongside the
+  existing `findByOwnerId(ownerId)`
+- `CalendarController` (`/api/calendars`) — thin controller reading the
+  authenticated `User` from the `Authentication` parameter; no ownership or
+  database logic in the controller itself
+  - `POST /api/calendars` → `201 Created`
+  - `GET /api/calendars` → `200 OK` (only the caller's calendars)
+  - `GET /api/calendars/{id}` → `200 OK`
+  - `PUT /api/calendars/{id}` → `200 OK`
+  - `DELETE /api/calendars/{id}` → `204 No Content`
+- `CalendarNotFoundException` — generic "Calendar not found" message, used
+  both when a calendar doesn't exist and when it belongs to another user, so
+  the API never reveals that another user's calendar exists
+- `GlobalExceptionHandler` updated to turn `CalendarNotFoundException` into a
+  `404` `ErrorResponse`
+- Ownership is enforced entirely through repository queries scoped by owner
+  ID (`findByOwnerId`, `findByIdAndOwnerId`) — never by loading all calendars
+  and filtering in Java, and never by trusting an owner ID from the client
+- `CalendarServiceTest` (Mockito, no database) covering: create assigns the
+  authenticated user as owner, list returns only that user's calendars, get
+  succeeds for an owned calendar, get throws `CalendarNotFoundException` for
+  another user's calendar, update changes name and color, delete calls the
+  repository delete operation
+- `CalendarControllerTest` (`@WebMvcTest`, real `SecurityConfig`) covering:
+  authenticated create returns `201`, unauthenticated request returns `401`,
+  invalid request returns `400`, a missing/not-owned calendar returns `404`,
+  delete returns `204`
+
+**Known limitation carried into Phase 5:** the `events` table has
+`calendar_id BIGINT NOT NULL REFERENCES calendars (id)` with no
+`ON DELETE CASCADE`. Since Event CRUD does not exist yet, no event can
+currently reference a calendar, so this is unreachable today. Once Phase 5
+adds Event CRUD, deleting a calendar that still has events will fail with a
+foreign-key violation until that phase decides how to handle it (e.g.
+blocking the delete, cascading, or reassigning events). No such policy has
+been implemented yet — this is intentionally deferred, not solved, in Phase
+4A.
+
+---
+
 # Current Project Status
 
 The application currently supports:
@@ -216,6 +267,7 @@ The application currently supports:
 - JWT request authentication (`JwtAuthenticationFilter` +
   `JwtAuthenticationEntryPoint`)
 - A protected `GET /api/users/me` endpoint
+- Calendar CRUD (`/api/calendars`), scoped to the authenticated user
 
 Every endpoint other than `POST /api/auth/register`, `POST /api/auth/login`,
 and the Swagger/OpenAPI paths now requires a valid Bearer token.
@@ -224,20 +276,21 @@ and the Swagger/OpenAPI paths now requires a valid Bearer token.
 
 # Next Phase
 
-## Phase 4 — Calendar CRUD
+## Phase 5 — Event CRUD
 
 Goals:
 
-- Calendar DTOs
-- `CalendarService`
-- Calendar CRUD endpoints, scoped to the authenticated user
-- Calendar tests
+- Event DTOs
+- `EventService`
+- Event CRUD endpoints, scoped to the authenticated user's calendars
+- Decide how calendar deletion interacts with existing events (see the
+  known limitation noted under Phase 4A)
+- Event tests
 
 ---
 
 # Remaining Planned Phases
 
-- **Phase 4** — Calendar CRUD.
 - **Phase 5** — Event CRUD.
 - **Phase 6** — Task CRUD.
 - **Phase 7** — Dashboard.
