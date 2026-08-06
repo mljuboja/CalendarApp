@@ -44,14 +44,14 @@ class UserControllerTest {
     private JwtService jwtService;
 
     @Test
-    void meWithoutTokenReturns401() throws Exception {
+    void noTokenReturns401() throws Exception {
         mockMvc.perform(get("/api/users/me"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.status").value(401));
     }
 
     @Test
-    void meWithValidTokenReturnsCurrentUserWithoutPasswordHash() throws Exception {
+    void validTokenReturnsCurrentUserWithoutPasswordHash() throws Exception {
         User user = new User();
         user.setId(1L);
         user.setFirstName("Jane");

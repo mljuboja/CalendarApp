@@ -62,7 +62,7 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    void noAuthorizationHeaderLeavesRequestUnauthenticated() throws Exception {
+    void noHeaderMeansNotLoggedIn() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -74,7 +74,7 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    void malformedBearerHeaderLeavesRequestUnauthenticated() throws Exception {
+    void wrongHeaderFormatMeansNotLoggedIn() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader("Authorization", "NotBearer sometoken");
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -87,7 +87,7 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    void validTokenAuthenticatesUser() throws Exception {
+    void goodTokenLogsUserIn() throws Exception {
         User user = existingUser();
         String token = jwtService.generateToken(user.getEmail(), user.getId());
         given(userRepository.findByEmail(user.getEmail())).willReturn(Optional.of(user));
@@ -108,7 +108,7 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    void expiredTokenDoesNotAuthenticate() throws Exception {
+    void expiredTokenDoesNotLogUserIn() throws Exception {
         JwtService shortLivedJwtService = new JwtService(new JwtProperties(SECRET, 1));
         String token = shortLivedJwtService.generateToken("jane@example.com", 1L);
         Thread.sleep(25); // let the 1ms expiration pass
@@ -124,7 +124,7 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    void tamperedTokenDoesNotAuthenticate() throws Exception {
+    void messedUpTokenDoesNotLogUserIn() throws Exception {
         String token = jwtService.generateToken("jane@example.com", 1L);
         String tamperedToken = token.substring(0, token.length() - 2)
                 + (token.endsWith("A") ? "B" : "A") + "A";
@@ -140,7 +140,7 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    void deletedUserDoesNotAuthenticate() throws Exception {
+    void deletedUserCantLogIn() throws Exception {
         String token = jwtService.generateToken("jane@example.com", 1L);
         given(userRepository.findByEmail("jane@example.com")).willReturn(Optional.empty());
 
