@@ -813,6 +813,102 @@ Phase 8A completed:
 
 ---
 
+## Phase 8B — Frontend Authentication
+
+Phase 8B completed:
+
+- `LoginPage` connected to `POST /api/auth/login` via the existing
+  `apiClient` — sends `email`/`password`, using the same `useState` form
+  fields introduced when the form was first built.
+- `RegisterPage` connected to `POST /api/auth/register` via `apiClient` —
+  sends `firstName`/`lastName`/`email`/`password`.
+- Both forms have a simple `isLoading` state (disables the submit button and
+  swaps its label while the request is in flight) and a simple
+  `errorMessage` state (shows the backend's `ErrorResponse.message` when
+  present, otherwise a generic "Something went wrong").
+- On successful login, the JWT (`response.data.token`) is saved to
+  `localStorage` under the key `authToken`, and the user is navigated to
+  `/`. On successful registration, the user is navigated to `/login` (no
+  token is issued by registration).
+- `apiClient.js` — one Axios request interceptor reads `authToken` from
+  `localStorage` on every outgoing request and, if present, sets
+  `Authorization: Bearer <token>`; otherwise the request is left unchanged.
+- `ProtectedRoute` (`frontend/src/components/ProtectedRoute.jsx`) — reads
+  `authToken` from `localStorage` and either renders `<Outlet />` or
+  redirects to `/login` via `<Navigate replace />`. It only checks whether a
+  token exists; it does not decode or validate it client-side.
+- Routing updated so `/`, `/calendar`, and `/tasks` are nested under
+  `ProtectedRoute` (which wraps the existing `AppLayout`), so all three
+  require a token and unauthenticated visitors are redirected to `/login`.
+  `/login` and `/register` remain outside `ProtectedRoute` and stay public.
+- `AppLayout` — added a "Log Out" button that removes `authToken` from
+  `localStorage` and navigates to `/login`.
+- `npm run build` passes with no errors after every change in this phase.
+
+**Explicitly not done in Phase 8B (deferred to later phases):**
+
+- No auth context, no decoding/validation of the JWT on the client, and no
+  token expiration checks — `ProtectedRoute` only checks whether a token
+  string exists in `localStorage`.
+- No automatic 401 handling (e.g. auto-logout on an expired/rejected token),
+  no refresh tokens, and no roles/permissions.
+- No redirect-away logic if an already-logged-in user manually visits
+  `/login` or `/register`.
+- No user profile fetching (`GET /api/users/me` is not called from the
+  frontend yet).
+- No Dashboard/Calendar/Task feature UI — those pages are still placeholders.
+
+**Known gap carried forward:** the frontend now makes real browser requests
+to the backend (login/register) from `http://localhost:5173` to
+`http://localhost:8080`. No CORS configuration exists in `SecurityConfig` or
+anywhere else in the backend yet (confirmed by inspection), so these
+cross-origin requests will fail in an actual browser until CORS is
+configured. This was intentionally deferred through Phase 8A/8B per explicit
+instruction to avoid backend changes in those phases; it should be addressed
+as the first order of business in a near-term phase, since Phase 8B's forms
+cannot actually succeed against a real browser without it.
+
+---
+
+## Phase 8C — Dashboard Frontend
+
+Phase 8C completed:
+
+- `DashboardPage` now calls `GET /api/dashboard` through the existing
+  `apiClient`, fetched once on page load with a plain `useEffect`/`useState`
+  pair (no data-fetching library).
+- Simple `isLoading` state shows "Loading..." while the request is in
+  flight, and a simple `errorMessage` state shows the backend's
+  `ErrorResponse.message` (or a generic "Something went wrong") if the
+  request fails.
+- All four pieces of `DashboardResponse` are displayed:
+  - **Today's Events** — each shown as title plus start/end time
+    (`event.title`, `event.startTime`, `event.endTime`); "No events today"
+    when the list is empty.
+  - **Upcoming Tasks** — each shown as title, due date, priority, and status
+    (`task.title`, `task.dueDate`, `task.priority`, `task.status`); "No
+    upcoming tasks" when the list is empty.
+  - **Completed Tasks** — `completedTaskCount` shown as a plain number.
+  - **Scheduled Hours Today** — `scheduledHoursToday` shown as a plain
+    number.
+- A little plain CSS (`.dashboard-section`, `.dashboard-list`) was added to
+  `index.css` for basic spacing — no charts, calendar libraries, or new
+  component abstractions.
+- `npm run build` passes with no errors.
+
+**Explicitly not done in Phase 8C (intentionally out of scope):**
+
+- No task/event editing from the Dashboard, no filtering, no charts, and no
+  calendar UI library.
+- No auth context or automatic 401 handling — if the JWT is missing/invalid,
+  the request simply fails and the existing generic error message is shown.
+- No backend changes.
+- The CORS gap noted under Phase 8B still applies: this page's
+  `GET /api/dashboard` call will fail in an actual browser until the backend
+  has CORS configured.
+
+---
+
 # Current Project Status
 
 The application currently supports:
@@ -849,14 +945,31 @@ The application currently supports:
 Every endpoint other than `POST /api/auth/register`, `POST /api/auth/login`,
 and the Swagger/OpenAPI paths now requires a valid Bearer token.
 
+On the frontend, the React/Vite app (`frontend/`) now has a working
+authentication flow: `LoginPage`/`RegisterPage` call the real backend
+endpoints, a JWT is stored in `localStorage` as `authToken`, an Axios
+interceptor attaches it to every outgoing request, and `/`, `/calendar`, and
+`/tasks` are protected by `ProtectedRoute` (redirecting unauthenticated
+visitors to `/login`), with a Logout button that clears the token.
+`DashboardPage` is now connected to the real `GET /api/dashboard` endpoint
+and displays today's Events, upcoming Tasks, completed Task count, and
+scheduled hours today. `CalendarPage` and `TasksPage` are still placeholder
+content — no feature UI or real data has been built for them yet — and the
+backend still has no CORS configuration, so none of these frontend requests
+actually succeed from a real browser yet.
+
 ---
 
 # Next Phase
 
-## Phase 8B — Frontend Authentication
+## Phase 8D — Calendar Frontend
 
 Still undecided/deferred (not tied to a specific upcoming phase yet):
 
+- CORS configuration for the backend — required before any frontend request
+  (login, register, dashboard, or otherwise) can actually succeed from a
+  browser; deferred through Phase 8A/8B/8C by explicit instruction but now a
+  blocker
 - How calendar/category deletion interacts with existing events (deferred
   since Phase 4A/4B)
 - Reminder delivery — `reminderOffsetMinutes` remains stored/returned only
@@ -866,7 +979,10 @@ Still undecided/deferred (not tied to a specific upcoming phase yet):
 
 # Remaining Planned Phases
 
-- **Phase 8** — React frontend.
+- **Phase 8D** — Calendar frontend (real `GET /api/events` integration on
+  `CalendarPage`).
+- **Phase 8E** — Task frontend (real `GET /api/tasks` integration on
+  `TasksPage`).
 - **Phase 9** — Testing, documentation, polish, screenshots, README
   improvements, and deployment preparation.
 

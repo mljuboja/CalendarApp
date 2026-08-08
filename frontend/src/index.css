@@ -123,3 +123,16 @@ a:hover {
   color: #c0392b;
   font-size: 14px;
 }
+
+.dashboard-section {
+  margin-bottom: 24px;
+}
+
+.dashboard-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.dashboard-list li {
+  margin-bottom: 6px;
+}
