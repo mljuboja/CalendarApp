@@ -1,7 +1,7 @@
 # Project Progress
 
 This document is the authoritative status document for **Daymark**. It reflects
-the current state of the project as of the completion of Phase 5A.
+the current state of the project as of the completion of Phase 5B.
 
 ---
 
@@ -247,13 +247,12 @@ Phase 4A completed:
 
 **Known limitation carried into Phase 5:** the `events` table has
 `calendar_id BIGINT NOT NULL REFERENCES calendars (id)` with no
-`ON DELETE CASCADE`. Since Event CRUD does not exist yet, no event can
-currently reference a calendar, so this is unreachable today. Once Phase 5
-adds Event CRUD, deleting a calendar that still has events will fail with a
-foreign-key violation until that phase decides how to handle it (e.g.
-blocking the delete, cascading, or reassigning events). No such policy has
-been implemented yet — this is intentionally deferred, not solved, in Phase
-4A.
+`ON DELETE CASCADE`. At the end of Phase 4A, Event CRUD did not exist yet, so
+no event could reference a calendar and this was unreachable. Event CRUD now
+exists as of Phase 5A, so a calendar that still has events will fail to
+delete with a foreign-key violation until a policy (blocking the delete,
+cascading, or reassigning events) is decided — no such policy has been
+implemented yet; this remains intentionally deferred.
 
 ---
 
@@ -300,13 +299,13 @@ Phase 4B completed:
 **Existing foreign-key behavior between Event and Category (unchanged in this
 phase):** `events.category_id` is `BIGINT REFERENCES categories (id)` with no
 `NOT NULL` constraint — an event's category is nullable — and there is no
-`ON DELETE SET NULL` or cascade behavior defined on that foreign key. Event
-CRUD has not been implemented yet, so the normal application currently has no
-way to create an `Event` row that references a category, meaning this
-constraint cannot currently be triggered. What should happen when deleting a
-category that is still referenced by an event (block the delete, set the
-event's category to null, etc.) has not been decided and is deferred to when
-Phase 5 implements Event CRUD.
+`ON DELETE SET NULL` or cascade behavior defined on that foreign key. At the
+time of Phase 4B, Event CRUD had not been implemented yet, so the normal
+application had no way to create an `Event` row that referenced a category,
+meaning this constraint could not yet be triggered. Event CRUD now exists as
+of Phase 5A. What should happen when deleting a category that is still
+referenced by an event (block the delete, set the event's category to null,
+etc.) has not been decided and remains deferred.
 
 ---
 
@@ -391,6 +390,80 @@ Phase 5A completed:
 
 ---
 
+## Phase 5B — Event Filtering
+
+Phase 5B completed:
+
+- `GET /api/events` now accepts four optional, independently-usable query
+  parameters: `start`, `end` (both `LocalDateTime`, ISO format, e.g.
+  `2026-01-01T09:00:00`), `calendarId`, and `categoryId`. Calling it with no
+  parameters still returns every event the authenticated user owns, exactly
+  as before this phase. No second list endpoint was added.
+- All supplied filters combine with **AND** behavior — e.g.
+  `?calendarId=3&categoryId=7` returns only events in calendar 3 **and**
+  category 7, both still scoped to the authenticated user.
+- **Date-range filtering uses overlap, not containment:** when both `start`
+  and `end` are supplied, an event matches if `event.startTime < end` AND
+  `event.endTime > start`, so an event that began before the visible window
+  but is still ongoing when it starts is still included.
+- **Date parameter rules**, enforced in `EventService`: neither `start` nor
+  `end` supplied → no date filter; both supplied and valid → filter by
+  overlap; exactly one supplied → `400 Bad Request`; `end` not after `start`
+  → `400 Bad Request`. Both cases reuse the existing
+  `InvalidEventTimeException` (message: "Start and end must form a valid
+  date range") — no new exception type was introduced.
+- **Calendar/Category filter ownership:** if `calendarId` is supplied,
+  `EventService` reuses its existing `findOwnedCalendar` helper
+  (`CalendarRepository.findByIdAndOwnerId`) to confirm it belongs to the
+  authenticated user, returning the existing generic `404` otherwise. The
+  same applies to `categoryId` via the existing `findOwnedCategory` helper.
+  Neither filter ID is trusted without this check.
+- `EventRepository.findByCalendarOwnerId(ownerId)` was replaced by a single
+  `@Query`-based method, `findByCalendarOwnerIdAndFilters(ownerId,
+  calendarId, categoryId, start, end)`, using plain JPQL with
+  `(:param IS NULL OR ...)` clauses so each filter is skipped when not
+  supplied — this one method covers every filter combination (including
+  none) instead of one derived-query method per combination. The query uses
+  a `LEFT JOIN` on `Event.category` specifically so that events with no
+  category are not silently excluded by an implicit inner join when no
+  category filter is applied. No Specifications, Criteria API, QueryDSL, or
+  other filtering framework was introduced.
+- `EventServiceTest` extended with: no filters still lists all of the
+  authenticated user's events, a date range filters by overlap, supplying
+  only one date parameter is rejected, an invalid range (`end` not after
+  `start`) is rejected, a calendar filter verifies ownership (and rejects
+  another user's calendar), a category filter verifies ownership (and
+  rejects another user's category), and combined filters are applied
+  together
+- `EventControllerTest` extended with: query parameters are correctly parsed
+  and passed through to the service, and an invalid filter (one date
+  parameter without the other) returns `400`. The existing unauthenticated
+  `GET /api/events` test already covers authentication and was not
+  duplicated.
+
+**Historical wording cleanup:** the Phase 4A and Phase 4B sections above
+originally stated that "Event CRUD does not exist yet" when describing why
+certain foreign-key constraints (`events.calendar_id`, `events.category_id`)
+were unreachable at the time. Those sentences have been reworded to state
+that this described the project **at the end of that specific phase**, since
+Event CRUD has existed since Phase 5A and both constraints are reachable
+today. No other historical wording was changed.
+
+**Explicitly not done in Phase 5B (deferred to a later Event phase):**
+
+- Recurrence is still stored only, never expanded — a `DAILY`/`WEEKLY`/
+  `MONTHLY` event is still exactly one stored row; there is no recurrence
+  filtering, occurrence generation, or recurrence end date.
+- `reminderOffsetMinutes` remains a stored/returned preference only —
+  reminder delivery (email, push, browser notifications, scheduled jobs)
+  is intentionally not implemented.
+- No keyword search, pagination, sorting framework, or drag-and-drop
+  reschedule (`PATCH`) endpoint.
+- Calendar/category deletion behavior when events still reference them
+  (see Phase 4A/4B) remains undecided.
+
+---
+
 # Current Project Status
 
 The application currently supports:
@@ -403,9 +476,12 @@ The application currently supports:
 - A protected `GET /api/users/me` endpoint
 - Calendar CRUD (`/api/calendars`), scoped to the authenticated user
 - Category CRUD (`/api/categories`), scoped to the authenticated user
-- Basic Event CRUD (`/api/events`), scoped to the authenticated user through
+- Event CRUD (`/api/events`), scoped to the authenticated user through
   Calendar ownership, with Calendar/Category ownership validated whenever an
   event references them
+- Optional Event filtering on `GET /api/events` by date range (overlap),
+  calendar, and/or category, combined with AND behavior, with ownership
+  enforced on every filter ID supplied
 
 Every endpoint other than `POST /api/auth/register`, `POST /api/auth/login`,
 and the Swagger/OpenAPI paths now requires a valid Bearer token.
@@ -414,12 +490,11 @@ and the Swagger/OpenAPI paths now requires a valid Bearer token.
 
 # Next Phase
 
-## Phase 5B — Advanced Event Features
+## Phase 5C — Remaining Advanced Event Features
 
 Goals:
 
 - Recurring-event expansion
-- Date-range/calendar/category filtering
 - Drag-and-drop reschedule endpoint
 - Decide how calendar/category deletion interacts with existing events
 - Reminder delivery
@@ -428,8 +503,8 @@ Goals:
 
 # Remaining Planned Phases
 
-- **Phase 5B** — Advanced Event features (recurrence expansion, filtering,
-  reminders).
+- **Phase 5C** — Remaining advanced Event features (recurrence expansion,
+  drag-and-drop rescheduling, reminder delivery).
 - **Phase 6** — Task CRUD.
 - **Phase 7** — Dashboard.
 - **Phase 8** — React frontend.

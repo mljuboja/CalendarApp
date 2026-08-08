@@ -131,18 +131,81 @@ class EventServiceTest {
     }
 
     @Test
-    void listEventsReturnsEventsScopedToAuthenticatedUser() {
+    void listEventsWithNoFiltersReturnsAllEventsForThatUser() {
         Calendar calendar = calendarWith(2L, userWith(1L));
         Event event1 = eventWith(1L, "Standup", calendar, null);
         Event event2 = eventWith(2L, "Retro", calendar, null);
 
-        when(eventRepository.findByCalendarOwnerId(1L)).thenReturn(List.of(event1, event2));
+        when(eventRepository.findByCalendarOwnerIdAndFilters(1L, null, null, null, null))
+                .thenReturn(List.of(event1, event2));
 
-        List<EventResponse> responses = eventService.listEvents(1L);
+        List<EventResponse> responses = eventService.listEvents(1L, null, null, null, null);
 
         assertThat(responses).hasSize(2);
         assertThat(responses).extracting(EventResponse::getTitle).containsExactly("Standup", "Retro");
-        verify(eventRepository).findByCalendarOwnerId(1L);
+        verify(eventRepository).findByCalendarOwnerIdAndFilters(1L, null, null, null, null);
+    }
+
+    @Test
+    void listEventsWithDateRangeFiltersByOverlap() {
+        Calendar calendar = calendarWith(2L, userWith(1L));
+        Event overlapping = eventWith(1L, "Standup", calendar, null);
+        LocalDateTime rangeStart = START.plusMinutes(30);
+        LocalDateTime rangeEnd = END.plusHours(1);
+
+        when(eventRepository.findByCalendarOwnerIdAndFilters(1L, null, null, rangeStart, rangeEnd))
+                .thenReturn(List.of(overlapping));
+
+        List<EventResponse> responses = eventService.listEvents(1L, rangeStart, rangeEnd, null, null);
+
+        assertThat(responses).extracting(EventResponse::getTitle).containsExactly("Standup");
+    }
+
+    @Test
+    void listEventsWithOnlyOneDateParameterIsRejected() {
+        assertThatThrownBy(() -> eventService.listEvents(1L, START, null, null, null))
+                .isInstanceOf(InvalidEventTimeException.class);
+        assertThatThrownBy(() -> eventService.listEvents(1L, null, END, null, null))
+                .isInstanceOf(InvalidEventTimeException.class);
+    }
+
+    @Test
+    void listEventsWithInvalidDateRangeIsRejected() {
+        assertThatThrownBy(() -> eventService.listEvents(1L, END, START, null, null))
+                .isInstanceOf(InvalidEventTimeException.class);
+    }
+
+    @Test
+    void listEventsWithCalendarFilterVerifiesOwnership() {
+        when(calendarRepository.findByIdAndOwnerId(99L, 1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> eventService.listEvents(1L, null, null, 99L, null))
+                .isInstanceOf(CalendarNotFoundException.class);
+    }
+
+    @Test
+    void listEventsWithCategoryFilterVerifiesOwnership() {
+        when(categoryRepository.findByIdAndOwnerId(99L, 1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> eventService.listEvents(1L, null, null, null, 99L))
+                .isInstanceOf(CategoryNotFoundException.class);
+    }
+
+    @Test
+    void listEventsAppliesCombinedFiltersTogether() {
+        User owner = userWith(1L);
+        Calendar calendar = calendarWith(2L, owner);
+        Category category = categoryWith(3L, owner);
+        Event event = eventWith(1L, "Standup", calendar, category);
+
+        when(calendarRepository.findByIdAndOwnerId(2L, 1L)).thenReturn(Optional.of(calendar));
+        when(categoryRepository.findByIdAndOwnerId(3L, 1L)).thenReturn(Optional.of(category));
+        when(eventRepository.findByCalendarOwnerIdAndFilters(1L, 2L, 3L, null, null)).thenReturn(List.of(event));
+
+        List<EventResponse> responses = eventService.listEvents(1L, null, null, 2L, 3L);
+
+        assertThat(responses).extracting(EventResponse::getTitle).containsExactly("Standup");
+        verify(eventRepository).findByCalendarOwnerIdAndFilters(1L, 2L, 3L, null, null);
     }
 
     @Test

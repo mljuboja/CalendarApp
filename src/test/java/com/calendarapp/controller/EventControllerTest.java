@@ -2,7 +2,10 @@ package com.calendarapp.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -10,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
@@ -26,6 +30,7 @@ import com.calendarapp.dto.EventResponse;
 import com.calendarapp.entity.RecurrenceType;
 import com.calendarapp.entity.User;
 import com.calendarapp.exception.EventNotFoundException;
+import com.calendarapp.exception.InvalidEventTimeException;
 import com.calendarapp.repository.UserRepository;
 import com.calendarapp.security.JwtAuthenticationEntryPoint;
 import com.calendarapp.security.JwtService;
@@ -105,6 +110,37 @@ class EventControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.message").value("Event not found"));
+    }
+
+    @Test
+    void listPassesQueryParametersToService() throws Exception {
+        givenAuthenticatedUser(1L, "jane@example.com");
+        given(eventService.listEvents(eq(1L), any(LocalDateTime.class), any(LocalDateTime.class), eq(2L), eq(3L)))
+                .willReturn(List.of(eventResponse()));
+
+        mockMvc.perform(get("/api/events")
+                        .param("start", "2026-01-01T09:00:00")
+                        .param("end", "2026-01-01T10:00:00")
+                        .param("calendarId", "2")
+                        .param("categoryId", "3")
+                        .header("Authorization", "Bearer valid-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(10));
+
+        verify(eventService).listEvents(1L, LocalDateTime.of(2026, 1, 1, 9, 0), LocalDateTime.of(2026, 1, 1, 10, 0), 2L, 3L);
+    }
+
+    @Test
+    void listWithOnlyOneDateParameterReturns400() throws Exception {
+        givenAuthenticatedUser(1L, "jane@example.com");
+        given(eventService.listEvents(eq(1L), any(LocalDateTime.class), isNull(), isNull(), isNull()))
+                .willThrow(new InvalidEventTimeException("Start and end must form a valid date range"));
+
+        mockMvc.perform(get("/api/events")
+                        .param("start", "2026-01-01T09:00:00")
+                        .header("Authorization", "Bearer valid-token"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
     }
 
     @Test

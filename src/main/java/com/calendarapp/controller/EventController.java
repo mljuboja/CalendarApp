@@ -1,9 +1,11 @@
 package com.calendarapp.controller;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import jakarta.validation.Valid;
 
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.calendarapp.dto.EventRequest;
@@ -41,10 +44,18 @@ public class EventController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    // start/end/calendarId/categoryId are all optional and combine with AND
+    // behavior; omitting all of them returns every event the caller owns, same
+    // as before filtering existed.
     @GetMapping
-    public List<EventResponse> listEvents(Authentication authentication) {
+    public List<EventResponse> listEvents(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end,
+            @RequestParam(required = false) Long calendarId,
+            @RequestParam(required = false) Long categoryId,
+            Authentication authentication) {
         User user = (User) authentication.getPrincipal();
-        return eventService.listEvents(user.getId());
+        return eventService.listEvents(user.getId(), start, end, calendarId, categoryId);
     }
 
     @GetMapping("/{id}")

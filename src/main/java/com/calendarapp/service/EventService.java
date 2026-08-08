@@ -56,8 +56,17 @@ public class EventService {
         return toResponse(savedEvent);
     }
 
-    public List<EventResponse> listEvents(Long ownerId) {
-        return eventRepository.findByCalendarOwnerId(ownerId).stream()
+    public List<EventResponse> listEvents(
+            Long ownerId, LocalDateTime start, LocalDateTime end, Long calendarId, Long categoryId) {
+        validateDateRangeFilter(start, end);
+        if (calendarId != null) {
+            findOwnedCalendar(calendarId, ownerId);
+        }
+        if (categoryId != null) {
+            findOwnedCategory(categoryId, ownerId);
+        }
+
+        return eventRepository.findByCalendarOwnerIdAndFilters(ownerId, calendarId, categoryId, start, end).stream()
                 .map(EventService::toResponse)
                 .toList();
     }
@@ -104,6 +113,17 @@ public class EventService {
     private static void validateTimes(LocalDateTime startTime, LocalDateTime endTime) {
         if (!endTime.isAfter(startTime)) {
             throw new InvalidEventTimeException("Event end time must be after start time");
+        }
+    }
+
+    // start/end are optional filters, but only as a pair: both missing means "no date
+    // filter", one missing is ambiguous, and end must still be after start.
+    private static void validateDateRangeFilter(LocalDateTime start, LocalDateTime end) {
+        if (start == null && end == null) {
+            return;
+        }
+        if (start == null || end == null || !end.isAfter(start)) {
+            throw new InvalidEventTimeException("Start and end must form a valid date range");
         }
     }
 
