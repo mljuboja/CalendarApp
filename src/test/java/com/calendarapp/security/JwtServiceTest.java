@@ -71,12 +71,20 @@ class JwtServiceTest {
     @Test
     void messedUpTokenFailsSignatureValidation() {
         String token = jwtService.generateToken("user@example.com", 1L);
-        // Flip the last two characters of the signature segment to corrupt it.
-        String replacementChar = "A";
-        if (token.endsWith("A")) {
-            replacementChar = "B";
-        }
-        String tamperedToken = token.substring(0, token.length() - 2) + replacementChar + "A";
+
+        // A JWT is header.payload.signature. Changing a character right at the
+        // end of the signature can land on unused Base64URL padding bits and
+        // not actually change the decoded signature bytes, so instead we
+        // change a character in the middle of the signature segment.
+        String[] parts = token.split("\\.");
+        String signature = parts[2];
+        int middleIndex = signature.length() / 2;
+        char originalChar = signature.charAt(middleIndex);
+        char replacementChar = originalChar == 'A' ? 'B' : 'A';
+        String tamperedSignature =
+                signature.substring(0, middleIndex) + replacementChar + signature.substring(middleIndex + 1);
+
+        String tamperedToken = parts[0] + "." + parts[1] + "." + tamperedSignature;
 
         assertThat(jwtService.isTokenValid(tamperedToken)).isFalse();
         assertThatThrownBy(() -> jwtService.extractAllClaims(tamperedToken))

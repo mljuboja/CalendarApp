@@ -759,6 +759,60 @@ Phase 7 completed:
 
 ---
 
+## Phase 8A — React Frontend Foundation
+
+Phase 8A completed:
+
+- The React/Vite frontend foundation, in `frontend/`, alongside the existing
+  Spring Boot project at the repository root (the Spring Boot project itself
+  was not moved or restructured).
+- **Plain JavaScript**, not TypeScript — `.jsx` files, no `tsconfig.json`. The
+  frontend's "planned" tech stack listed earlier in this document mentioned
+  TypeScript; that was an early aspiration and has not been followed, since
+  the actual repository never established TypeScript.
+- React Router (`react-router-dom`) configured with placeholder routes:
+  `/login` → `LoginPage`, `/register` → `RegisterPage`, and `/`, `/calendar`,
+  `/tasks` → `DashboardPage`/`CalendarPage`/`TasksPage`, the latter three
+  rendered through a shared `AppLayout` (`<Outlet />`). Login/Register do not
+  use `AppLayout`.
+- A basic desktop `AppLayout` (`frontend/src/layouts/AppLayout.jsx`) with a
+  "Daymark" header, simple navigation links to Dashboard/Calendar/Tasks, and
+  an `<Outlet />` — no sidebar, no polished visual design yet.
+- A single centralized Axios instance (`frontend/src/api/apiClient.js`) that
+  only creates and exports `axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL })`.
+  No JWT/`localStorage` reading, no `Authorization` header, no interceptors,
+  and no other authentication behavior — those are intentionally deferred to
+  Phase 8B.
+- `frontend/.env.example` documenting `VITE_API_BASE_URL=http://localhost:8080`
+  (the backend's actual default port); a local `frontend/.env` with the same
+  value exists for development and is git-ignored.
+- Small, neutral global CSS (`frontend/src/index.css`) replacing the default
+  Vite/React template styling — no CSS framework, animations, dark mode, or
+  responsive/mobile work.
+- Unused Vite starter template files removed (`App.css`, `assets/react.svg`,
+  `assets/vite.svg`, `assets/hero.png`, `public/icons.svg`) after confirming
+  they were not referenced anywhere in the frontend once the placeholder
+  pages replaced the default template page.
+- All five placeholder pages (`DashboardPage`, `CalendarPage`, `TasksPage`,
+  `LoginPage`, `RegisterPage`) contain only a heading and a one-line
+  description — no forms, no API calls, no feature UI.
+
+**Explicitly not done in Phase 8A (deferred to Phase 8B):**
+
+- No JWT/`localStorage` handling, Axios interceptor, authentication context,
+  protected routes, login/registration forms, or logout.
+- No real API integration — nothing in the frontend calls the backend yet.
+- No backend changes — no Java files were modified, and CORS was
+  deliberately **not** configured yet, since Phase 8A makes no browser
+  requests to the backend that would trigger it. CORS configuration is
+  deferred to Phase 8B, the first phase with real `axios` calls from the
+  browser to Spring Boot.
+- No Dashboard/Calendar/Task feature UI, drag-and-drop, or recurrence
+  controls.
+- No frontend testing framework (Vitest/Jest/React Testing Library).
+
+---
+
 # Current Project Status
 
 The application currently supports:
@@ -799,7 +853,7 @@ and the Swagger/OpenAPI paths now requires a valid Bearer token.
 
 # Next Phase
 
-## Phase 8 — React Frontend
+## Phase 8B — Frontend Authentication
 
 Still undecided/deferred (not tied to a specific upcoming phase yet):
 
