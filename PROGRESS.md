@@ -932,6 +932,154 @@ work in Phase 8A–8C; no other backend code was modified for those phases.
 
 ---
 
+## Phase 8D-1 — Task List Display
+
+Phase 8D-1 completed:
+
+- `TasksPage` now calls `GET /api/tasks` through the existing `apiClient`,
+  fetched once on page load with a plain `useEffect`/`useState` pair — the
+  same pattern already used on `DashboardPage`. No separate Task API
+  module, custom hook, or data-fetching library was introduced.
+- Simple `isLoading` state shows "Loading..." while the request is in
+  flight, and a simple `errorMessage` state shows the backend's
+  `ErrorResponse.message` (or a generic "Something went wrong") if the
+  request fails.
+- Each task in the returned list (`TaskResponse`) is displayed with its
+  title, description (only if present), due date (only if present),
+  priority, and status.
+- "No tasks yet." is shown when the list is empty.
+- A little plain CSS (`.task-list`, `.task-item`, `.task-title`,
+  `.task-description`, `.task-meta`) was added to `index.css` for basic,
+  readable spacing consistent with the existing site — no new component
+  abstractions.
+- `npm run build` passes with no errors.
+
+**Explicitly not done in Phase 8D-1 (intentionally out of scope):**
+
+- No creating, editing, deleting, or status-changing tasks from the UI yet.
+- No filtering, sorting, or pagination.
+- No backend changes.
+
+---
+
+## Phase 8D-2 — Task Creation
+
+Phase 8D-2 completed:
+
+- `TasksPage` now has a simple "Add a Task" form above the task list, with
+  controlled inputs (`useState`) matching the backend `TaskRequest` exactly:
+  `title` (text), `description` (text), `dueDate` (date input, optional),
+  `priority` (`<select>`: `LOW`/`MEDIUM`/`HIGH`), and `status` (`<select>`:
+  `TODO`/`IN_PROGRESS`/`COMPLETED`).
+- On submit, the form calls `POST /api/tasks` through the existing
+  `apiClient` with the current form values (`dueDate` sent as `null` when
+  left blank).
+- On a successful create, the returned `TaskResponse` is appended to the
+  existing `tasks` state (no full re-fetch) and the form fields are reset to
+  their defaults.
+- A separate `isSubmitting` state disables the "Add Task" button and swaps
+  its label to "Adding..." while the request is in flight, independent of
+  the page's initial `isLoading` state used for the task list fetch.
+- A separate `createErrorMessage` state shows the backend's
+  `ErrorResponse.message` (or a generic "Something went wrong") under the
+  form if creation fails, without disturbing the existing task list or its
+  own error state.
+- Plain CSS (`.task-form` and related rules) was added to `index.css`,
+  styled consistently with the existing `.auth-form` — no new libraries or
+  reusable form abstractions.
+- `npm run build` passes with no errors.
+
+**Explicitly not done in Phase 8D-2 (intentionally out of scope):**
+
+- No editing, deleting, or status-changing actions on existing tasks yet.
+- No client-side validation beyond the browser's native `<input>`/`<select>`
+  behavior — invalid input is surfaced only through the existing backend
+  error-message display.
+- No backend changes.
+
+---
+
+## Phase 8D-3 — Task Status Updates
+
+Phase 8D-3 completed:
+
+- Each task in the `TasksPage` list now has a status `<select>`
+  (`TODO`/`IN_PROGRESS`/`COMPLETED`) reflecting `task.status`.
+- Changing the select calls `PATCH /api/tasks/{id}/status` through the
+  existing `apiClient` with `{ status: <selected value> }`, reusing the
+  existing backend endpoint from Phase 6 as-is.
+- On a successful response, the returned `TaskResponse` replaces that one
+  task in the existing `tasks` array (`tasks.map(...)`, matching by `id`) —
+  no full re-fetch of the task list.
+- A single shared `statusErrorMessage` state shows the backend's
+  `ErrorResponse.message` (or a generic "Something went wrong") near the
+  task list if a status update fails; it does not affect the task-creation
+  form's own error state or the list's initial-load error state.
+- No per-task loading state, disabling, or optimistic-update/rollback
+  behavior was added — every status `<select>` stays usable at all times,
+  including while another task's status update is in flight, exactly as
+  scoped.
+- Plain CSS (`.task-status-select`) was added to `index.css`, and
+  `.task-meta` was updated to vertically align the select with the existing
+  text.
+- The existing task-creation form and task list display continue to work
+  unchanged.
+- `npm run build` passes with no errors.
+
+**Explicitly not done in Phase 8D-3 (intentionally out of scope):**
+
+- No task editing, deleting, filtering, sorting, or search.
+- No drag-and-drop.
+- No custom hooks, reducer pattern, or state-management library — status
+  updates are handled with the same `useState`/`apiClient` pattern already
+  used for creating and listing tasks.
+- No backend changes.
+
+---
+
+## Phase 8D-4 — Task Edit and Delete
+
+Phase 8D-4 completed:
+
+- Each task in the `TasksPage` list now has **Edit** and **Delete** buttons
+  next to the existing status `<select>`.
+- **Edit:** clicking Edit tracks a single `editingTaskId` plus a small set
+  of `useState` fields (`editTitle`, `editDescription`, `editDueDate`,
+  `editPriority`, `editStatus`) pre-filled from that task. Only one task can
+  be in edit mode at a time — clicking Edit on a different task just moves
+  `editingTaskId` (no per-task edit-state map or reusable editing
+  framework). While a task is being edited, its list item conditionally
+  renders an inline form instead of its normal display.
+- **Save:** calls `PUT /api/tasks/{id}` through the existing `apiClient`
+  with the edited values, replaces that task in the existing `tasks` array
+  with the returned `TaskResponse` (`tasks.map(...)` by `id`, no re-fetch),
+  and exits edit mode.
+- **Cancel:** simply clears `editingTaskId` without calling the backend or
+  changing the task's data.
+- **Delete:** asks for confirmation with the browser's built-in
+  `window.confirm(...)` (no confirmation-modal library), then calls
+  `DELETE /api/tasks/{id}` and removes that task from the existing `tasks`
+  array (`tasks.filter(...)`, no re-fetch) on success.
+- A single shared `editErrorMessage` state shows the backend's
+  `ErrorResponse.message` (or a generic "Something went wrong") near the
+  task list if an edit-save or delete fails, separate from the existing
+  create-form and status-update error states.
+- Plain CSS was added for the Edit/Delete buttons, the inline edit form's
+  inputs/selects, and the Save/Cancel button row — no modal library, no new
+  component abstractions.
+- The existing task-creation form, task list display, and status `<select>`
+  all continue to work unchanged.
+- `npm run build` passes with no errors.
+
+**Explicitly not done in Phase 8D-4 (intentionally out of scope):**
+
+- No filtering, sorting, search, drag-and-drop, or batch actions.
+- No custom hooks, reducer pattern, modal library, form library, or
+  separate Task API module.
+- No backend changes.
+
+---
+
 # Current Project Status
 
 The application currently supports:
@@ -976,17 +1124,23 @@ interceptor attaches it to every outgoing request, and `/`, `/calendar`, and
 visitors to `/login`), with a Logout button that clears the token.
 `DashboardPage` is now connected to the real `GET /api/dashboard` endpoint
 and displays today's Events, upcoming Tasks, completed Task count, and
-scheduled hours today. `CalendarPage` and `TasksPage` are still placeholder
-content — no feature UI or real data has been built for them yet. The
-backend now has standard Spring Security CORS configuration allowing the
-local Vite dev server (`http://localhost:5173`), so the frontend's real API
-calls (login, register, dashboard) can succeed from an actual browser.
+scheduled hours today. `TasksPage` now displays the authenticated user's
+real tasks (title, description, due date, priority, status) from
+`GET /api/tasks`, and supports the full set of task actions from the UI:
+creating a task (`POST /api/tasks`), changing a task's status from a
+per-task `<select>` (`PATCH /api/tasks/{id}/status`), editing a task inline
+(`PUT /api/tasks/{id}`), and deleting a task with a confirmation prompt
+(`DELETE /api/tasks/{id}`). `CalendarPage` is still placeholder content — no
+feature UI or real data has been built for it yet. The backend now has standard Spring
+Security CORS configuration allowing the local Vite dev server
+(`http://localhost:5173`), so the frontend's real API calls (login,
+register, dashboard, tasks) can succeed from an actual browser.
 
 ---
 
 # Next Phase
 
-## Phase 8D — Calendar Frontend
+## Phase 8E — Calendar Frontend Foundation
 
 Still undecided/deferred (not tied to a specific upcoming phase yet):
 
@@ -999,10 +1153,8 @@ Still undecided/deferred (not tied to a specific upcoming phase yet):
 
 # Remaining Planned Phases
 
-- **Phase 8D** — Calendar frontend (real `GET /api/events` integration on
-  `CalendarPage`).
-- **Phase 8E** — Task frontend (real `GET /api/tasks` integration on
-  `TasksPage`).
+- **Phase 8E** — Calendar frontend foundation (real `GET /api/events`
+  integration on `CalendarPage`).
 - **Phase 9** — Testing, documentation, polish, screenshots, README
   improvements, and deployment preparation.
 
