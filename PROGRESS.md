@@ -1,7 +1,7 @@
 # Project Progress
 
 This document is the authoritative status document for **Daymark**. It reflects
-the current state of the project as of the completion of Phase 5B.
+the current state of the project as of the completion of Phase 5C.
 
 ---
 
@@ -464,6 +464,92 @@ today. No other historical wording was changed.
 
 ---
 
+## Phase 5C — Recurring-Event Expansion
+
+Phase 5C completed:
+
+- **One database row per recurring series, still.** A `DAILY`/`WEEKLY`/
+  `MONTHLY` `Event` is still exactly one row in `events`; no schema change was
+  made and no additional rows are ever created for occurrences. The stored
+  `startTime`/`endTime` represent the **first** occurrence, and every
+  generated occurrence keeps that same duration
+  (`Duration.between(startTime, endTime)`).
+- **Expansion only happens for date-range queries.** `EventService.listEvents`
+  only expands recurrence when both `start` and `end` are supplied to
+  `GET /api/events`. With no date range, every stored event (recurring or
+  not) is returned exactly once, unexpanded — the same behavior as before
+  this phase. `GET /api/events/{id}` is untouched and always returns the
+  single stored definition, never occurrences.
+- **`EventService.expandOccurrences(event, rangeStart, rangeEnd)`** — a small
+  private helper that starts from the event's stored `startTime` and steps
+  forward one interval at a time (`plusDays(1)` for `DAILY`, `plusWeeks(1)`
+  for `WEEKLY`, `plusMonths(1)` for `MONTHLY`, using Java's ordinary
+  `LocalDateTime` behavior with no custom month-length/leap-year handling),
+  keeping any occurrence whose calculated start/end overlaps the requested
+  range using the existing overlap rule
+  (`occurrenceStart < rangeEnd AND occurrenceEnd > rangeStart`). The loop
+  naturally stops as soon as an occurrence's start is no longer before
+  `rangeEnd`, so it never generates further into the future than the
+  requested range requires. No recurrence engine, strategy pattern, or
+  interval configuration was introduced — just a loop and a `switch` on
+  `RecurrenceType`.
+- **Generated occurrences are `EventResponse` objects only** — nothing is
+  saved back to the database, and no occurrence entity exists. The existing
+  `EventResponse` is reused unchanged: an occurrence keeps the original
+  Event's `id`, `title`, `description`, `location`, `allDay`,
+  `recurrenceType`, `reminderOffsetMinutes`, and calendar/category fields,
+  with only `startTime`/`endTime` replaced by the generated occurrence's
+  values. This means a single filtered `GET /api/events?start=...&end=...`
+  response can legitimately contain the same `id` more than once (once per
+  occurrence) — the `id` identifies the stored recurring Event/series, not an
+  individual occurrence. No occurrence ID was added to the backend in this
+  phase; a future frontend can construct its own display identifier (e.g.
+  combining the event `id` with its occurrence `startTime`) if it needs one.
+- **`EventRepository.findByCalendarOwnerIdAndFilters` updated** so recurring
+  events that started before the requested range are still fetched as
+  candidates for expansion. The date-range condition now has two cases: a
+  `NONE` event still requires its stored `startTime`/`endTime` to overlap the
+  range exactly as in Phase 5B; a recurring event (`recurrenceType <> NONE`)
+  only requires its stored `startTime` to be before the requested `end`,
+  since its occurrences only ever move forward in time and a series that
+  began long ago can still have an occurrence inside the requested range.
+  Owner filtering, calendar filtering, and category filtering all remain in
+  this same JPQL query exactly as before — no Specifications, Criteria API,
+  QueryDSL, or native SQL was introduced.
+- **Calendar/Category filters continue to work with recurrence** — they still
+  narrow which `Event` definitions are fetched from the database (with
+  ownership enforced exactly as in Phase 5B); expansion then runs per
+  definition afterward, so a calendar- or category-filtered request still
+  only expands events that passed those filters.
+- **Update/delete meaning is unchanged.** Since a recurring series is one
+  row, updating an `Event` updates the whole series' definition (there is no
+  "edit this occurrence only"), and deleting it removes the entire series
+  (there is no "delete this occurrence only"). No recurrence exceptions or
+  skipped-occurrence support exists.
+- `EventServiceTest` extended with: `NONE` still returns one overlapping
+  occurrence, `DAILY`/`WEEKLY`/`MONTHLY` each generate the expected
+  occurrences within a requested range, occurrence duration matches the
+  stored event's duration, occurrences outside the requested range are
+  excluded, a recurring event whose stored date is well before the requested
+  range still produces occurrences inside it, no date range returns the
+  recurring event once unexpanded, and combined Calendar/Category filtering
+  continues to work. No controller tests were added since the controller's
+  API surface did not change.
+
+**Explicitly not done in Phase 5C (intentionally out of scope):**
+
+- No recurrence end date or occurrence count — a recurring series is treated
+  as continuing indefinitely; expansion is naturally bounded only by the
+  requested date range.
+- No custom recurrence intervals (e.g. "every 2 weeks"), no RRULE/iCalendar
+  parsing, no recurrence exceptions/excluded dates.
+- No "edit this occurrence" / "edit this and future occurrences" / "delete
+  this occurrence only" behavior.
+- Reminder delivery remains intentionally unimplemented —
+  `reminderOffsetMinutes` is still stored and returned only.
+
+---
+
 # Current Project Status
 
 The application currently supports:
@@ -482,6 +568,9 @@ The application currently supports:
 - Optional Event filtering on `GET /api/events` by date range (overlap),
   calendar, and/or category, combined with AND behavior, with ownership
   enforced on every filter ID supplied
+- Recurring-event expansion (`DAILY`/`WEEKLY`/`MONTHLY`) for date-range
+  `GET /api/events` queries, generated in memory only — one stored `Event`
+  row still represents the entire recurring series
 
 Every endpoint other than `POST /api/auth/register`, `POST /api/auth/login`,
 and the Swagger/OpenAPI paths now requires a valid Bearer token.
@@ -490,11 +579,10 @@ and the Swagger/OpenAPI paths now requires a valid Bearer token.
 
 # Next Phase
 
-## Phase 5C — Remaining Advanced Event Features
+## Phase 5D — Remaining Advanced Event Features
 
 Goals:
 
-- Recurring-event expansion
 - Drag-and-drop reschedule endpoint
 - Decide how calendar/category deletion interacts with existing events
 - Reminder delivery
@@ -503,8 +591,8 @@ Goals:
 
 # Remaining Planned Phases
 
-- **Phase 5C** — Remaining advanced Event features (recurrence expansion,
-  drag-and-drop rescheduling, reminder delivery).
+- **Phase 5D** — Remaining advanced Event features (drag-and-drop
+  rescheduling, reminder delivery).
 - **Phase 6** — Task CRUD.
 - **Phase 7** — Dashboard.
 - **Phase 8** — React frontend.

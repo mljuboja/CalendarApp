@@ -23,12 +23,23 @@ public interface EventRepository extends JpaRepository<Event, Long> {
     // LEFT JOIN on category keeps uncategorized events in the results unless the
     // caller filters by category - an inner join would drop them even with no
     // category filter applied.
+    //
+    // The date-range condition has two cases: a NONE event still needs its stored
+    // startTime/endTime to overlap the range like before. A recurring event's
+    // occurrences only ever move forward in time from its stored startTime, so it's
+    // a candidate whenever that stored startTime is before the requested end - it
+    // doesn't matter how long ago it started. EventService then works out exactly
+    // which generated occurrences actually fall in the range.
     @Query("SELECT e FROM Event e LEFT JOIN e.category c "
             + "WHERE e.calendar.owner.id = :ownerId "
             + "AND (:calendarId IS NULL OR e.calendar.id = :calendarId) "
             + "AND (:categoryId IS NULL OR c.id = :categoryId) "
-            + "AND (:start IS NULL OR e.startTime < :end) "
-            + "AND (:end IS NULL OR e.endTime > :start)")
+            + "AND (:start IS NULL OR ("
+            + "(e.recurrenceType = com.calendarapp.entity.RecurrenceType.NONE "
+            + "AND e.startTime < :end AND e.endTime > :start) "
+            + "OR (e.recurrenceType <> com.calendarapp.entity.RecurrenceType.NONE "
+            + "AND e.startTime < :end)"
+            + "))")
     List<Event> findByCalendarOwnerIdAndFilters(
             @Param("ownerId") Long ownerId,
             @Param("calendarId") Long calendarId,

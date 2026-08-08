@@ -1,6 +1,8 @@
 package com.calendarapp.service;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -10,6 +12,7 @@ import com.calendarapp.dto.EventResponse;
 import com.calendarapp.entity.Calendar;
 import com.calendarapp.entity.Category;
 import com.calendarapp.entity.Event;
+import com.calendarapp.entity.RecurrenceType;
 import com.calendarapp.entity.User;
 import com.calendarapp.exception.CalendarNotFoundException;
 import com.calendarapp.exception.CategoryNotFoundException;
@@ -66,9 +69,49 @@ public class EventService {
             findOwnedCategory(categoryId, ownerId);
         }
 
-        return eventRepository.findByCalendarOwnerIdAndFilters(ownerId, calendarId, categoryId, start, end).stream()
-                .map(EventService::toResponse)
-                .toList();
+        List<Event> events = eventRepository.findByCalendarOwnerIdAndFilters(ownerId, calendarId, categoryId, start, end);
+
+        // With no date range, every stored event is returned once, unexpanded - the
+        // same behavior as before recurrence expansion existed.
+        if (start == null || end == null) {
+            return events.stream().map(EventService::toResponse).toList();
+        }
+
+        List<EventResponse> responses = new ArrayList<>();
+        for (Event event : events) {
+            if (event.getRecurrenceType() == RecurrenceType.NONE) {
+                responses.add(toResponse(event));
+            } else {
+                responses.addAll(expandOccurrences(event, start, end));
+            }
+        }
+        return responses;
+    }
+
+    // Generates one EventResponse per occurrence of a recurring event that overlaps
+    // [rangeStart, rangeEnd). Occurrences are calculated in memory only - nothing
+    // here is saved back to the database. Every occurrence keeps the original
+    // duration and moves forward from the stored startTime one interval at a time,
+    // stopping as soon as an occurrence can no longer start before rangeEnd.
+    private static List<EventResponse> expandOccurrences(Event event, LocalDateTime rangeStart, LocalDateTime rangeEnd) {
+        List<EventResponse> occurrences = new ArrayList<>();
+        Duration duration = Duration.between(event.getStartTime(), event.getEndTime());
+
+        LocalDateTime occurrenceStart = event.getStartTime();
+        while (occurrenceStart.isBefore(rangeEnd)) {
+            LocalDateTime occurrenceEnd = occurrenceStart.plus(duration);
+            if (occurrenceEnd.isAfter(rangeStart)) {
+                occurrences.add(toResponse(event, occurrenceStart, occurrenceEnd));
+            }
+
+            occurrenceStart = switch (event.getRecurrenceType()) {
+                case DAILY -> occurrenceStart.plusDays(1);
+                case WEEKLY -> occurrenceStart.plusWeeks(1);
+                case MONTHLY -> occurrenceStart.plusMonths(1);
+                case NONE -> throw new IllegalStateException("NONE events are not expanded");
+            };
+        }
+        return occurrences;
     }
 
     public EventResponse getEvent(Long eventId, Long ownerId) {
@@ -145,6 +188,14 @@ public class EventService {
     }
 
     private static EventResponse toResponse(Event event) {
+        return toResponse(event, event.getStartTime(), event.getEndTime());
+    }
+
+    // Builds a response for either the stored event itself, or one generated
+    // occurrence of it - startTime/endTime are passed in separately so a recurring
+    // occurrence can reuse all of the event's other fields (id, title, calendar,
+    // category, etc.) while substituting its own calculated start/end.
+    private static EventResponse toResponse(Event event, LocalDateTime startTime, LocalDateTime endTime) {
         Calendar calendar = event.getCalendar();
         Category category = event.getCategory();
 
@@ -153,8 +204,8 @@ public class EventService {
                 event.getTitle(),
                 event.getDescription(),
                 event.getLocation(),
-                event.getStartTime(),
-                event.getEndTime(),
+                startTime,
+                endTime,
                 event.isAllDay(),
                 event.getRecurrenceType(),
                 event.getReminderOffsetMinutes(),

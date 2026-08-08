@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -192,6 +193,122 @@ class EventServiceTest {
     }
 
     @Test
+    void listEventsWithNoneRecurrenceReturnsOneOverlappingOccurrence() {
+        Calendar calendar = calendarWith(2L, userWith(1L));
+        Event event = eventWith(1L, "Standup", calendar, null);
+        event.setRecurrenceType(RecurrenceType.NONE);
+        LocalDateTime rangeStart = START.minusMinutes(30);
+        LocalDateTime rangeEnd = END.plusMinutes(30);
+
+        when(eventRepository.findByCalendarOwnerIdAndFilters(1L, null, null, rangeStart, rangeEnd))
+                .thenReturn(List.of(event));
+
+        List<EventResponse> responses = eventService.listEvents(1L, rangeStart, rangeEnd, null, null);
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.get(0).getStartTime()).isEqualTo(START);
+        assertThat(responses.get(0).getEndTime()).isEqualTo(END);
+    }
+
+    @Test
+    void dailyRecurrenceGeneratesExpectedOccurrencesWithinRange() {
+        Calendar calendar = calendarWith(2L, userWith(1L));
+        Event event = recurringEventWith(1L, calendar, RecurrenceType.DAILY);
+
+        LocalDateTime rangeStart = START;
+        LocalDateTime rangeEnd = START.plusDays(3);
+        when(eventRepository.findByCalendarOwnerIdAndFilters(1L, null, null, rangeStart, rangeEnd))
+                .thenReturn(List.of(event));
+
+        List<EventResponse> responses = eventService.listEvents(1L, rangeStart, rangeEnd, null, null);
+
+        assertThat(responses).extracting(EventResponse::getStartTime)
+                .containsExactly(START, START.plusDays(1), START.plusDays(2));
+        assertThat(responses).allSatisfy(response -> assertThat(response.getId()).isEqualTo(1L));
+    }
+
+    @Test
+    void weeklyRecurrenceGeneratesExpectedOccurrencesWithinRange() {
+        Calendar calendar = calendarWith(2L, userWith(1L));
+        Event event = recurringEventWith(1L, calendar, RecurrenceType.WEEKLY);
+
+        LocalDateTime rangeStart = START;
+        LocalDateTime rangeEnd = START.plusWeeks(2);
+        when(eventRepository.findByCalendarOwnerIdAndFilters(1L, null, null, rangeStart, rangeEnd))
+                .thenReturn(List.of(event));
+
+        List<EventResponse> responses = eventService.listEvents(1L, rangeStart, rangeEnd, null, null);
+
+        assertThat(responses).extracting(EventResponse::getStartTime)
+                .containsExactly(START, START.plusWeeks(1));
+    }
+
+    @Test
+    void monthlyRecurrenceGeneratesExpectedOccurrencesWithinRangeAndPreservesDuration() {
+        Calendar calendar = calendarWith(2L, userWith(1L));
+        Event event = recurringEventWith(1L, calendar, RecurrenceType.MONTHLY);
+
+        LocalDateTime rangeStart = START;
+        LocalDateTime rangeEnd = START.plusMonths(2);
+        when(eventRepository.findByCalendarOwnerIdAndFilters(1L, null, null, rangeStart, rangeEnd))
+                .thenReturn(List.of(event));
+
+        List<EventResponse> responses = eventService.listEvents(1L, rangeStart, rangeEnd, null, null);
+
+        assertThat(responses).extracting(EventResponse::getStartTime)
+                .containsExactly(START, START.plusMonths(1));
+        assertThat(responses).allSatisfy(response ->
+                assertThat(Duration.between(response.getStartTime(), response.getEndTime()))
+                        .isEqualTo(Duration.between(START, END)));
+    }
+
+    @Test
+    void occurrencesOutsideRequestedRangeAreExcluded() {
+        Calendar calendar = calendarWith(2L, userWith(1L));
+        Event event = recurringEventWith(1L, calendar, RecurrenceType.DAILY);
+
+        // Only the second daily occurrence (START.plusDays(1)) overlaps this window.
+        LocalDateTime rangeStart = START.plusDays(1).plusMinutes(15);
+        LocalDateTime rangeEnd = START.plusDays(1).plusHours(2);
+        when(eventRepository.findByCalendarOwnerIdAndFilters(1L, null, null, rangeStart, rangeEnd))
+                .thenReturn(List.of(event));
+
+        List<EventResponse> responses = eventService.listEvents(1L, rangeStart, rangeEnd, null, null);
+
+        assertThat(responses).extracting(EventResponse::getStartTime).containsExactly(START.plusDays(1));
+    }
+
+    @Test
+    void recurringEventStartingBeforeRangeStillProducesLaterOccurrences() {
+        Calendar calendar = calendarWith(2L, userWith(1L));
+        Event event = recurringEventWith(1L, calendar, RecurrenceType.WEEKLY);
+
+        // The stored event started weeks before the requested range.
+        LocalDateTime rangeStart = START.plusWeeks(4);
+        LocalDateTime rangeEnd = START.plusWeeks(5);
+        when(eventRepository.findByCalendarOwnerIdAndFilters(1L, null, null, rangeStart, rangeEnd))
+                .thenReturn(List.of(event));
+
+        List<EventResponse> responses = eventService.listEvents(1L, rangeStart, rangeEnd, null, null);
+
+        assertThat(responses).extracting(EventResponse::getStartTime).containsExactly(START.plusWeeks(4));
+    }
+
+    @Test
+    void noDateRangeReturnsRecurringEventOnceUnexpanded() {
+        Calendar calendar = calendarWith(2L, userWith(1L));
+        Event event = recurringEventWith(1L, calendar, RecurrenceType.DAILY);
+
+        when(eventRepository.findByCalendarOwnerIdAndFilters(1L, null, null, null, null))
+                .thenReturn(List.of(event));
+
+        List<EventResponse> responses = eventService.listEvents(1L, null, null, null, null);
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.get(0).getStartTime()).isEqualTo(START);
+    }
+
+    @Test
     void listEventsAppliesCombinedFiltersTogether() {
         User owner = userWith(1L);
         Calendar calendar = calendarWith(2L, owner);
@@ -298,6 +415,12 @@ class EventServiceTest {
         event.setRecurrenceType(RecurrenceType.NONE);
         event.setCalendar(calendar);
         event.setCategory(category);
+        return event;
+    }
+
+    private static Event recurringEventWith(Long id, Calendar calendar, RecurrenceType recurrenceType) {
+        Event event = eventWith(id, "Standup", calendar, null);
+        event.setRecurrenceType(recurrenceType);
         return event;
     }
 
