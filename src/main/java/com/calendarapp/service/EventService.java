@@ -46,9 +46,10 @@ public class EventService {
 
     public EventResponse createEvent(EventRequest request, User owner) {
         Calendar calendar = findOwnedCalendar(request.getCalendarId(), owner.getId());
-        Category category = request.getCategoryId() == null
-                ? null
-                : findOwnedCategory(request.getCategoryId(), owner.getId());
+        Category category = null;
+        if (request.getCategoryId() != null) {
+            category = findOwnedCategory(request.getCategoryId(), owner.getId());
+        }
         validateTimes(request.getStartTime(), request.getEndTime());
 
         Event event = new Event();
@@ -123,9 +124,10 @@ public class EventService {
     public EventResponse updateEvent(Long eventId, EventRequest request, Long ownerId) {
         Event event = findOwnedEvent(eventId, ownerId);
         Calendar calendar = findOwnedCalendar(request.getCalendarId(), ownerId);
-        Category category = request.getCategoryId() == null
-                ? null
-                : findOwnedCategory(request.getCategoryId(), ownerId);
+        Category category = null;
+        if (request.getCategoryId() != null) {
+            category = findOwnedCategory(request.getCategoryId(), ownerId);
+        }
         validateTimes(request.getStartTime(), request.getEndTime());
 
         event.setCalendar(calendar);
@@ -215,6 +217,15 @@ public class EventService {
         Calendar calendar = event.getCalendar();
         Category category = event.getCategory();
 
+        Long categoryId = null;
+        String categoryName = null;
+        String categoryColor = null;
+        if (category != null) {
+            categoryId = category.getId();
+            categoryName = category.getName();
+            categoryColor = category.getColor();
+        }
+
         return new EventResponse(
                 event.getId(),
                 event.getTitle(),
@@ -227,8 +238,8 @@ public class EventService {
                 event.getReminderOffsetMinutes(),
                 calendar.getId(),
                 calendar.getName(),
-                category == null ? null : category.getId(),
-                category == null ? null : category.getName(),
-                category == null ? null : category.getColor());
+                categoryId,
+                categoryName,
+                categoryColor);
     }
 }

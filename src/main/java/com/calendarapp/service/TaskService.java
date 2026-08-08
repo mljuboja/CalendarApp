@@ -1,5 +1,6 @@
 package com.calendarapp.service;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -8,6 +9,7 @@ import com.calendarapp.dto.TaskRequest;
 import com.calendarapp.dto.TaskResponse;
 import com.calendarapp.dto.TaskStatusUpdateRequest;
 import com.calendarapp.entity.Task;
+import com.calendarapp.entity.TaskStatus;
 import com.calendarapp.entity.User;
 import com.calendarapp.exception.TaskNotFoundException;
 import com.calendarapp.repository.TaskRepository;
@@ -75,6 +77,19 @@ public class TaskService {
 
         Task savedTask = taskRepository.save(task);
         return toResponse(savedTask);
+    }
+
+    // For the dashboard: this user's incomplete tasks due today or later,
+    // nearest due date first.
+    public List<TaskResponse> getUpcomingTasks(Long ownerId) {
+        return taskRepository.findUpcomingTasks(ownerId, TaskStatus.COMPLETED, LocalDate.now()).stream()
+                .map(TaskService::toResponse)
+                .toList();
+    }
+
+    // For the dashboard: how many of this user's tasks are COMPLETED.
+    public long getCompletedTaskCount(Long ownerId) {
+        return taskRepository.countByOwnerIdAndStatus(ownerId, TaskStatus.COMPLETED);
     }
 
     // Shared by get/update/delete/updateStatus: looks up a task scoped to its

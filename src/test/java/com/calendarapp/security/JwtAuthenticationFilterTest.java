@@ -126,8 +126,11 @@ class JwtAuthenticationFilterTest {
     @Test
     void messedUpTokenDoesNotLogUserIn() throws Exception {
         String token = jwtService.generateToken("jane@example.com", 1L);
-        String tamperedToken = token.substring(0, token.length() - 2)
-                + (token.endsWith("A") ? "B" : "A") + "A";
+        String replacementChar = "A";
+        if (token.endsWith("A")) {
+            replacementChar = "B";
+        }
+        String tamperedToken = token.substring(0, token.length() - 2) + replacementChar + "A";
 
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader("Authorization", "Bearer " + tamperedToken);

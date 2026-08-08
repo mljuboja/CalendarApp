@@ -1,7 +1,7 @@
 # Project Progress
 
 This document is the authoritative status document for **Daymark**. It reflects
-the current state of the project as of the completion of Phase 6.
+the current state of the project as of the completion of Phase 7.
 
 ---
 
@@ -682,6 +682,83 @@ Phase 6 completed:
 
 ---
 
+## Phase 7 — Dashboard
+
+Phase 7 completed:
+
+- `GET /api/dashboard` — a single endpoint that combines existing Event and
+  Task data into one summary response for the authenticated user. This is
+  not a general analytics system: it only reuses `EventService`/`TaskService`
+  and adds one small calculation (today's scheduled hours).
+- `DashboardResponse` DTO — `todaysEvents` (`List<EventResponse>`),
+  `upcomingTasks` (`List<TaskResponse>`), `completedTaskCount` (`long`),
+  `scheduledHoursToday` (`double`). No productivity score, streaks,
+  percentages, charts, or trend data.
+- **Today's Events reuse `EventService.listEvents(...)` unchanged** —
+  `DashboardService` calls
+  `eventService.listEvents(ownerId, todayStart, tomorrowStart, null, null)`,
+  the exact same public method `GET /api/events` already uses. This means
+  the Phase 5B date-overlap filtering and Phase 5C recurrence expansion are
+  reused as-is: a `WEEKLY` event created months ago that has an occurrence
+  today is already included, with no recurrence code duplicated in
+  `DashboardService`. `EventService` itself was not modified.
+- **"Today" is plain `LocalDateTime`, no time zones** — `todayStart` is
+  `LocalDate.now().atStartOfDay()` and `tomorrowStart` is
+  `todayStart.plusDays(1)`, using the server's local time exactly like the
+  rest of the project. No `ZoneId`, UTC conversion, or per-user time zone
+  was introduced.
+- **Upcoming Tasks** — `TaskRepository.findUpcomingTasks(ownerId,
+  completedStatus, today)`, a short JPQL `@Query` (not a long derived method
+  name) that returns the user's Tasks where `status <> COMPLETED` and
+  `dueDate >= :today`, ordered by `dueDate` ascending. A `null` `dueDate`
+  is naturally excluded by the `>=` comparison — no extra null-check code
+  needed. No arbitrary 7/30-day cutoff.
+- **Completed Task count** — `TaskRepository.countByOwnerIdAndStatus(ownerId,
+  COMPLETED)`, a simple derived count query; every Task is never loaded into
+  Java just to count them.
+- `TaskService` extended with two small methods that reuse the existing
+  private `toResponse(...)` mapping: `getUpcomingTasks(Long ownerId)` and
+  `getCompletedTaskCount(Long ownerId)`.
+- **Scheduled hours today** — a small private `calculateScheduledHours(...)`
+  helper in `DashboardService` sums, for every `EventResponse` already
+  returned as "today's Events," the portion of that event that falls inside
+  `[todayStart, tomorrowStart)`: `effectiveStart` is the later of the
+  event's start and `todayStart`; `effectiveEnd` is the earlier of the
+  event's end and `tomorrowStart`. `Duration.between(...)` gives the
+  overlapping minutes, which are summed and divided by `60.0`. This
+  correctly clips an event that starts yesterday and ends today (or starts
+  today and ends tomorrow) to only the portion that's actually today. No
+  analytics utility, `BigDecimal`, or custom duration class was introduced.
+- `DashboardService` — a small, non-interface service with one public
+  method (`getDashboard(Long ownerId)`) and one private helper, depending
+  only on the existing `EventService` and `TaskService` (no direct
+  repository access, no new ownership logic).
+- `DashboardController` (`/api/dashboard`) — a single thin
+  `GET /api/dashboard` method reading the authenticated `User` from
+  `Authentication`, exactly like every other controller; no calculations or
+  repository calls in the controller itself.
+- `DashboardServiceTest` (Mockito, `EventService`/`TaskService` mocked)
+  covering: the response includes today's Events/upcoming Tasks/completed
+  count from the mocked services, scheduled hours sum correctly for events
+  fully inside today, and scheduled hours correctly clip an event that
+  crosses into yesterday and one that crosses into tomorrow. Recurrence and
+  date-filtering behavior itself is not re-tested here since it's already
+  covered by `EventServiceTest`.
+- `DashboardControllerTest` (`@WebMvcTest`, real `SecurityConfig`) covering:
+  an authenticated `GET /api/dashboard` returns `200` with all four expected
+  JSON sections present, and an unauthenticated request returns `401`.
+
+**Explicitly not done in Phase 7 (intentionally out of scope):**
+
+- No productivity scores, streaks, weekly/monthly analytics, charts, or
+  trend calculations.
+- No Task search, Event search, or pagination.
+- No reminder delivery, notifications, or scheduled jobs.
+- No frontend work.
+- No Specifications, Criteria API, QueryDSL, or generic query builders.
+
+---
+
 # Current Project Status
 
 The application currently supports:
@@ -710,6 +787,10 @@ The application currently supports:
 - Task CRUD (`/api/tasks`), scoped directly to the authenticated user's
   `owner` column, plus a dedicated `PATCH /api/tasks/{id}/status` endpoint
   for changing only a task's status
+- `GET /api/dashboard` — a summary endpoint combining today's Events,
+  upcoming incomplete Tasks, completed Task count, and today's scheduled
+  Event hours for the authenticated user, built entirely by reusing
+  `EventService`/`TaskService`
 
 Every endpoint other than `POST /api/auth/register`, `POST /api/auth/login`,
 and the Swagger/OpenAPI paths now requires a valid Bearer token.
@@ -718,7 +799,7 @@ and the Swagger/OpenAPI paths now requires a valid Bearer token.
 
 # Next Phase
 
-## Phase 7 — Dashboard
+## Phase 8 — React Frontend
 
 Still undecided/deferred (not tied to a specific upcoming phase yet):
 
@@ -731,7 +812,6 @@ Still undecided/deferred (not tied to a specific upcoming phase yet):
 
 # Remaining Planned Phases
 
-- **Phase 7** — Dashboard.
 - **Phase 8** — React frontend.
 - **Phase 9** — Testing, documentation, polish, screenshots, README
   improvements, and deployment preparation.
