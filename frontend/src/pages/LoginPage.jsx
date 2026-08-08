@@ -16,7 +16,6 @@ function LoginPage() {
 
     try {
       const response = await apiClient.post('/api/auth/login', { email, password });
-      console.log(response.data);
       localStorage.setItem('authToken', response.data.token);
       navigate('/');
     } catch (error) {

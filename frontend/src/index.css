@@ -281,3 +281,256 @@ a:hover {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+.event-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.event-item {
+  padding: 12px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.event-title {
+  font-weight: bold;
+}
+
+.event-description {
+  margin-top: 4px;
+  font-size: 14px;
+}
+
+.event-meta {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.event-form {
+  display: flex;
+  flex-direction: column;
+  max-width: 360px;
+  padding: 16px;
+  margin-bottom: 24px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.event-form h3 {
+  margin: 0 0 4px;
+}
+
+.event-form label {
+  margin-top: 12px;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.event-form input,
+.event-form select {
+  padding: 8px;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: inherit;
+}
+
+.event-form button {
+  margin-top: 20px;
+  padding: 10px;
+  font-size: 14px;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.event-form button:hover {
+  opacity: 0.9;
+}
+
+.event-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.event-meta button {
+  padding: 4px 10px;
+  margin-top: 6px;
+  margin-right: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.event-meta button:hover {
+  background: #f4f3ec;
+}
+
+.event-item label {
+  display: block;
+  margin-top: 10px;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.event-item input,
+.event-item select {
+  padding: 8px;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: inherit;
+}
+
+.event-edit-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+}
+
+.event-edit-actions button {
+  padding: 8px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.event-edit-actions button:first-child {
+  color: #fff;
+  background: var(--accent);
+  border: none;
+}
+
+.event-edit-actions button:last-child {
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--border);
+}
+
+.management-section {
+  max-width: 360px;
+  margin-top: 32px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.management-section h3 {
+  margin: 0 0 4px;
+}
+
+.management-form {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 16px;
+}
+
+.management-form label {
+  margin-top: 12px;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.management-form input[type='text'] {
+  padding: 8px;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: inherit;
+}
+
+.management-form input[type='color'] {
+  width: 60px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.management-form button {
+  margin-top: 16px;
+  padding: 10px;
+  font-size: 14px;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.management-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.management-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.management-item label {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.management-item input[type='text'] {
+  padding: 8px;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: inherit;
+}
+
+.management-item input[type='color'] {
+  width: 60px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.color-swatch {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
+
+.management-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.management-actions button {
+  padding: 4px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.management-actions button:hover {
+  background: #f4f3ec;
+}

@@ -1080,6 +1080,199 @@ Phase 8D-4 completed:
 
 ---
 
+## Phase 8E-1 — Event List Display
+
+Phase 8E-1 completed:
+
+- `CalendarPage` now calls `GET /api/events` (no query parameters) through
+  the existing `apiClient`, fetched once on page load with a plain
+  `useEffect`/`useState` pair — the same pattern already used on
+  `DashboardPage`/`TasksPage`. No separate Event API module, custom hook, or
+  data-fetching library was introduced.
+- Simple `isLoading` state shows "Loading..." while the request is in
+  flight, and a simple `errorMessage` state shows the backend's
+  `ErrorResponse.message` (or a generic "Something went wrong") if the
+  request fails.
+- "No events yet." is shown when the list is empty.
+- Each event in the returned list (`EventResponse`) is displayed using the
+  real backend field names: `title`, `startTime`/`endTime` (formatted with
+  the built-in `new Date(...).toLocaleString()` — no date library),
+  `description` (only if present), `location` (only if present),
+  `calendarName`, `categoryName` (only if present), and `recurrenceType`.
+- No frontend recurrence expansion was added — calling `GET /api/events`
+  with no date range returns each recurring event's stored definition once,
+  exactly as the backend already documents, and the page simply displays
+  whatever the endpoint returns.
+- A little plain CSS (`.event-list`, `.event-item`, `.event-title`,
+  `.event-description`, `.event-meta`) was added to `index.css`, styled
+  consistently with the existing `.task-list`/`.task-item` rules — no new
+  component abstractions.
+- `npm run build` passes with no errors.
+
+**Explicitly not done in Phase 8E-1 (intentionally out of scope):**
+
+- No event creation, editing, or deletion.
+- No drag-and-drop, resizing, month/week/day views, date navigation, or any
+  calendar UI library.
+- No event/calendar/category filtering.
+- No Calendar or Category CRUD from the UI.
+- No date library — formatting uses only `Date.prototype.toLocaleString()`.
+- No backend changes.
+
+---
+
+## Phase 8E-2 — Event Creation
+
+Phase 8E-2 completed:
+
+- `CalendarPage` now has a simple "Add an Event" form above the event list,
+  with controlled inputs (`useState`) matching the backend `EventRequest`
+  exactly: `title` (text), `description` (text), `location` (text),
+  `startTime`/`endTime` (`datetime-local` inputs), `allDay` (checkbox),
+  `recurrenceType` (`<select>`: `NONE`/`DAILY`/`WEEKLY`/`MONTHLY`),
+  `reminderOffsetMinutes` (number input, optional — sent as `null` when
+  left blank), `calendarId` (`<select>`, required), and `categoryId`
+  (`<select>`, optional).
+- On page load, in addition to the existing events fetch, `CalendarPage`
+  fetches `GET /api/calendars` and `GET /api/categories` via plain
+  `useEffect` calls (all three requests fire together, no request
+  chaining/waterfall) and stores the results in `calendars`/`categories`
+  state to populate the two `<select>` elements. The calendar select
+  defaults to the user's first calendar; the category select has a
+  "No category" option that sends `categoryId: null`.
+- On submit, calls `POST /api/events` through the existing `apiClient` with
+  the form values (`calendarId`/`categoryId` converted to numbers since
+  `<select>` values are always strings). On success, the returned
+  `EventResponse` is appended to the existing `events` state (no full
+  re-fetch) and the form fields are reset (the calendar selection is left
+  as-is rather than cleared, since a calendar is always required).
+- A separate `isSubmitting` state disables the "Add Event" button and swaps
+  its label to "Adding..." while the request is in flight, and a separate
+  `createErrorMessage` state shows the backend's `ErrorResponse.message` (or
+  a generic "Something went wrong") under the form if creation fails —
+  independent of the page's initial load error state.
+- If the user has no calendars, the form is hidden entirely and replaced
+  with "Create a calendar before adding an event." (no Calendar CRUD was
+  built to resolve this — that remains out of scope).
+- Plain CSS (`.event-form` and related rules) was added to `index.css`,
+  styled consistently with the existing `.task-form`/`.auth-form` — no new
+  libraries or reusable form abstractions.
+- The existing event list display continues to work unchanged.
+- `npm run build` passes with no errors.
+
+**Explicitly not done in Phase 8E-2 (intentionally out of scope):**
+
+- No event editing or deletion.
+- No drag-and-drop, resizing, month/week/day views, or date navigation.
+- No event/calendar/category filtering.
+- No Calendar or Category CRUD from the UI (a missing calendar only shows a
+  message; it is not created from this page).
+- No calendar/date library — recurrence is a plain `<select>` and
+  start/end times use the browser's native `datetime-local` input.
+- No backend changes.
+
+---
+
+## Phase 8E-3 — Event Edit and Delete
+
+Phase 8E-3 completed:
+
+- Each event in `CalendarPage`'s list now has "Edit" and "Delete" buttons.
+- Clicking "Edit" swaps that single event's list item for an inline edit
+  form (same pattern as `TasksPage`'s task edit), tracked with an
+  `editingEventId` state plus a separate set of plain `useState` fields
+  (`editTitle`, `editDescription`, `editLocation`, `editStartTime`,
+  `editEndTime`, `editAllDay`, `editRecurrenceType`,
+  `editReminderOffsetMinutes`, `editCalendarId`, `editCategoryId`),
+  prefilled directly from that event's current `EventResponse` values (with
+  `startTime`/`endTime` trimmed to the `datetime-local` input's expected
+  `YYYY-MM-DDTHH:mm` shape). The edit form's calendar/category `<select>`
+  options reuse the `calendars`/`categories` state already loaded for the
+  create form — they are not re-fetched.
+- "Save" calls `PUT /api/events/{id}` with the edited fields in the same
+  shape as `EventRequest`, replaces that event in the existing `events`
+  state with the returned `EventResponse` (via `map`, no re-fetch), and
+  exits edit mode. "Cancel" exits edit mode without saving.
+- "Delete" asks for confirmation with `window.confirm()`, then calls
+  `DELETE /api/events/{id}` and removes that event from the existing
+  `events` state (via `filter`, no re-fetch).
+- A single `eventActionErrorMessage` state shows one shared error message
+  near the event list for either a failed edit or a failed delete, kept
+  separate from the create form's own `createErrorMessage`.
+- Only one event can be edited at a time; no modal or reusable event-form
+  component was introduced. Editing a recurring event updates the single
+  stored series definition — there is no "edit this occurrence only"
+  behavior.
+- The existing event creation form and event list continue to work
+  unchanged.
+- Plain CSS (`.event-meta button`, `.event-item label/input/select`,
+  `.event-edit-actions`) was added to `index.css`, mirroring the existing
+  task list edit styles.
+- `npm run build` passes with no errors.
+
+**Explicitly not done in Phase 8E-3 (intentionally out of scope):**
+
+- No drag-and-drop or resizing.
+- No month/week/day calendar views.
+- No event/calendar/category filtering.
+- No Calendar or Category CRUD from the UI.
+- No recurrence calculations or occurrence-specific editing.
+- No backend changes.
+
+---
+
+## Phase 8E-4 — Calendar and Category Management
+
+Phase 8E-4 completed:
+
+- `CalendarPage` now has a "Calendars" section and a "Categories" section
+  (each a plain bordered list showing a color swatch, the name, and Edit/
+  Delete buttons), placed below the existing event list.
+- Calendar create: a small form (`name` text input, `color` using
+  `<input type="color">`) calls `POST /api/calendars` and appends the
+  returned `CalendarResponse` to the existing `calendars` state.
+- Calendar edit: clicking "Edit" swaps that single list item for an inline
+  form (tracked with `editingCalendarId` plus plain `editCalendarNameValue`/
+  `editCalendarColorValue` state, prefilled from the calendar), "Save" calls
+  `PUT /api/calendars/{id}` and replaces that calendar in state via `map`,
+  "Cancel" exits edit mode without saving. Only one calendar can be edited
+  at a time.
+- Calendar delete: `window.confirm()` then `DELETE /api/calendars/{id}`,
+  removing it from state via `filter` on success.
+- Category create/edit/delete work identically to Calendars, using their
+  own state (`newCategoryName`/`newCategoryColor`, `editingCategoryId`,
+  `editCategoryNameValue`/`editCategoryColorValue`) and their own endpoints
+  (`POST`/`PUT`/`DELETE /api/categories`(`/{id}`)).
+- A `calendarActionErrorMessage` and a separate `categoryActionErrorMessage`
+  show one shared error message per section for any failed create/edit/
+  delete — including the backend's own message if a delete is blocked
+  because existing Events still reference that Calendar/Category (no
+  frontend reassignment logic was added; the backend's current
+  foreign-key/validation behavior was not changed).
+- No new fetches were needed for this: the event creation form's and event
+  edit form's calendar/category `<select>` elements read from the same
+  `calendars`/`categories` state that the new management sections update
+  directly, so creating, editing, or deleting a Calendar/Category is
+  immediately reflected in the event forms.
+- The existing event creation, edit, and delete functionality, and the
+  event list, continue to work unchanged.
+- Plain CSS (`.management-section`, `.management-form`, `.management-list`,
+  `.management-item`, `.color-swatch`, `.management-actions`) was added to
+  `index.css`.
+- `npm run build` passes with no errors.
+
+**Explicitly not done in Phase 8E-4 (intentionally out of scope):**
+
+- No visual month/week/day calendar, drag-and-drop, or event resizing.
+- No event filtering UI or recurrence UI changes.
+- No Calendar or Category sharing.
+- No frontend logic to reassign/handle Events when a delete is blocked —
+  the backend's existing error message (or a generic fallback) is simply
+  displayed.
+- No backend changes.
+
+---
+
 # Current Project Status
 
 The application currently supports:
@@ -1130,22 +1323,32 @@ real tasks (title, description, due date, priority, status) from
 creating a task (`POST /api/tasks`), changing a task's status from a
 per-task `<select>` (`PATCH /api/tasks/{id}/status`), editing a task inline
 (`PUT /api/tasks/{id}`), and deleting a task with a confirmation prompt
-(`DELETE /api/tasks/{id}`). `CalendarPage` is still placeholder content — no
-feature UI or real data has been built for it yet. The backend now has standard Spring
-Security CORS configuration allowing the local Vite dev server
+(`DELETE /api/tasks/{id}`). `CalendarPage` now displays the authenticated
+user's real events (title, start/end time, description, location, calendar
+name, category name, recurrence type) from the unfiltered `GET /api/events`
+and supports the full set of event actions from the UI: creating an event
+(`POST /api/events`, with calendar/category `<select>` options loaded from
+`GET /api/calendars`/`GET /api/categories`), editing an event inline
+(`PUT /api/events/{id}`), and deleting an event with a confirmation prompt
+(`DELETE /api/events/{id}`). `CalendarPage` also now has full Calendar and
+Category management sections (create, inline edit, and delete with
+confirmation, hitting `/api/calendars` and `/api/categories`), which the
+event forms' `<select>` options automatically reflect since they share the
+same state. The backend now has standard Spring Security CORS
+configuration allowing the local Vite dev server
 (`http://localhost:5173`), so the frontend's real API calls (login,
-register, dashboard, tasks) can succeed from an actual browser.
+register, dashboard, tasks, events) can succeed from an actual browser.
 
 ---
 
 # Next Phase
 
-## Phase 8E — Calendar Frontend Foundation
+## Phase 8E-5 — Visual Calendar View
 
 Still undecided/deferred (not tied to a specific upcoming phase yet):
 
-- How calendar/category deletion interacts with existing events (deferred
-  since Phase 4A/4B)
+- How calendar/category deletion interacts with existing events beyond
+  surfacing the backend's existing error (deferred since Phase 4A/4B)
 - Reminder delivery — `reminderOffsetMinutes` remains stored/returned only
 - Task filtering/search/sorting, if a future phase decides it's needed
 
@@ -1153,8 +1356,7 @@ Still undecided/deferred (not tied to a specific upcoming phase yet):
 
 # Remaining Planned Phases
 
-- **Phase 8E** — Calendar frontend foundation (real `GET /api/events`
-  integration on `CalendarPage`).
+- **Phase 8E-5** — Visual (month/week/day) calendar view for `CalendarPage`.
 - **Phase 9** — Testing, documentation, polish, screenshots, README
   improvements, and deployment preparation.
 
