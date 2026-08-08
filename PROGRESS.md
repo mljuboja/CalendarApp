@@ -1,7 +1,7 @@
 # Project Progress
 
 This document is the authoritative status document for **Daymark**. It reflects
-the current state of the project as of the completion of Phase 4A.
+the current state of the project as of the completion of Phase 4B.
 
 ---
 
@@ -257,6 +257,59 @@ been implemented yet — this is intentionally deferred, not solved, in Phase
 
 ---
 
+## Phase 4B — Category CRUD
+
+Phase 4B completed:
+
+- `CategoryRequest` DTO (`name`, `color`) — `name` required with a max length
+  of 100 characters, `color` required and validated against the same 6-digit
+  hex pattern (`^#[0-9A-Fa-f]{6}$`) already enforced by the `Category` entity
+  and the Flyway `CHECK` constraint. This mirrors `CalendarRequest` exactly —
+  no additional validation rules were introduced for Category.
+- `CategoryResponse` DTO (`id`, `name`, `color` only — no owner/user info)
+- `CategoryService` — create, list, get, update, delete, all scoped to the
+  authenticated user, following the same structure as `CalendarService`
+- `CategoryRepository.findByIdAndOwnerId(id, ownerId)` added alongside the
+  existing `findByOwnerId(ownerId)`
+- `CategoryController` (`/api/categories`) — thin controller reading the
+  authenticated `User` from the `Authentication` parameter; no ownership or
+  database logic in the controller itself
+  - `POST /api/categories` → `201 Created`
+  - `GET /api/categories` → `200 OK` (only the caller's categories)
+  - `GET /api/categories/{id}` → `200 OK`
+  - `PUT /api/categories/{id}` → `200 OK`
+  - `DELETE /api/categories/{id}` → `204 No Content`
+- `CategoryNotFoundException` — generic "Category not found" message, used
+  both when a category doesn't exist and when it belongs to another user, so
+  the API never reveals that another user's category exists
+- `GlobalExceptionHandler` updated to turn `CategoryNotFoundException` into a
+  `404` `ErrorResponse`
+- Ownership is enforced entirely through repository queries scoped by owner
+  ID (`findByOwnerId`, `findByIdAndOwnerId`) — never by loading all categories
+  and filtering in Java, and never by trusting an owner ID from the client
+- `CategoryServiceTest` (Mockito, no database) covering: create assigns the
+  authenticated user as owner, list returns only that user's categories, get
+  succeeds for an owned category, get throws `CategoryNotFoundException` for
+  another user's category, update changes name and color, delete calls the
+  repository delete operation
+- `CategoryControllerTest` (`@WebMvcTest`, real `SecurityConfig`) covering:
+  authenticated create returns `201`, unauthenticated request returns `401`,
+  invalid request returns `400`, a missing/not-owned category returns `404`,
+  delete returns `204`
+
+**Existing foreign-key behavior between Event and Category (unchanged in this
+phase):** `events.category_id` is `BIGINT REFERENCES categories (id)` with no
+`NOT NULL` constraint — an event's category is nullable — and there is no
+`ON DELETE SET NULL` or cascade behavior defined on that foreign key. Event
+CRUD has not been implemented yet, so the normal application currently has no
+way to create an `Event` row that references a category, meaning this
+constraint cannot currently be triggered. What should happen when deleting a
+category that is still referenced by an event (block the delete, set the
+event's category to null, etc.) has not been decided and is deferred to when
+Phase 5 implements Event CRUD.
+
+---
+
 # Current Project Status
 
 The application currently supports:
@@ -268,6 +321,7 @@ The application currently supports:
   `JwtAuthenticationEntryPoint`)
 - A protected `GET /api/users/me` endpoint
 - Calendar CRUD (`/api/calendars`), scoped to the authenticated user
+- Category CRUD (`/api/categories`), scoped to the authenticated user
 
 Every endpoint other than `POST /api/auth/register`, `POST /api/auth/login`,
 and the Swagger/OpenAPI paths now requires a valid Bearer token.
