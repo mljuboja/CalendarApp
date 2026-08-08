@@ -1,0 +1,55 @@
+:root {
+  --text: #333333;
+  --text-heading: #111111;
+  --bg: #ffffff;
+  --border: #dddddd;
+  --accent: #2f6fed;
+
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+h1,
+h2 {
+  color: var(--text-heading);
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.app-title {
+  margin: 0;
+  font-size: 20px;
+}
+
+.app-nav {
+  display: flex;
+  gap: 16px;
+}
+
+.app-main {
+  padding: 24px;
+}
