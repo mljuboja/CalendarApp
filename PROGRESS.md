@@ -1,7 +1,7 @@
 # Project Progress
 
 This document is the authoritative status document for **Daymark**. It reflects
-the current state of the project as of the completion of Phase 5D.
+the current state of the project as of the completion of Phase 6.
 
 ---
 
@@ -605,6 +605,83 @@ Phase 5D completed:
 
 ---
 
+## Phase 6 — Task CRUD
+
+Phase 6 completed:
+
+- `TaskRequest` DTO (`title`, `description`, `dueDate`, `priority`, `status`)
+  — `title` required (`@NotBlank`), `priority`/`status` required (`@NotNull`),
+  `description`/`dueDate` optional, matching the existing `Task` entity and
+  Flyway schema exactly (no new fields, columns, or constraints introduced).
+  The client can never set `owner`, `id`, `createdAt`, or `updatedAt`.
+- `TaskResponse` DTO (`id`, `title`, `description`, `dueDate`, `priority`,
+  `status` only — no `User`/owner info and no timestamps, consistent with
+  `CalendarResponse`/`CategoryResponse`).
+- `TaskService` — create, list, get, update, delete, and updateStatus, all
+  scoped to the authenticated user, following the same structure as
+  `CalendarService`/`CategoryService`:
+  - **Ownership:** unlike `Event` (owned indirectly through `Calendar`), a
+    `Task` belongs directly to its `owner` column. Every
+    get/update/delete/status-update uses the new
+    `TaskRepository.findByIdAndOwnerId(id, ownerId)` so a user can never
+    touch another user's task.
+  - **Create:** the authenticated `User` principal is used directly as the
+    owner — it is never reloaded from `UserRepository`.
+  - `findOwnedTask(...)` and `toResponse(...)` are small private helpers
+    mirroring the existing Calendar/Category/Event pattern; no service
+    interface, mapper framework, or generic ownership abstraction was
+    introduced.
+- `TaskRepository.findByIdAndOwnerId(Long id, Long ownerId)` added alongside
+  the existing `findByOwnerId(Long ownerId)`.
+- `TaskController` (`/api/tasks`) — thin controller reading the authenticated
+  `User` from the `Authentication` parameter; no ownership or database logic
+  in the controller itself:
+  - `POST /api/tasks` → `201 Created`
+  - `GET /api/tasks` → `200 OK` (only the caller's tasks)
+  - `GET /api/tasks/{id}` → `200 OK`
+  - `PUT /api/tasks/{id}` → `200 OK` (updates `title`, `description`,
+    `dueDate`, `priority`, `status`)
+  - `DELETE /api/tasks/{id}` → `204 No Content`
+  - `PATCH /api/tasks/{id}/status` → `200 OK`
+- `TaskStatusUpdateRequest` DTO — only `status` (`@NotNull`). The
+  `PATCH /api/tasks/{id}/status` endpoint changes **only** the `status`
+  field; `TaskService.updateTaskStatus(...)` finds the owned task, sets the
+  new status, saves, and returns the existing `TaskResponse`, leaving title,
+  description, due date, and priority untouched. Any of the three
+  `TaskStatus` values (`TODO`, `IN_PROGRESS`, `COMPLETED`) can be set
+  directly — no transition rules (e.g. requiring `TODO` → `IN_PROGRESS`
+  before `COMPLETED`) were added, matching the existing project's decision
+  not to add status-transition validation.
+- `TaskNotFoundException` — generic "Task not found" message, used both when
+  a task doesn't exist and when it belongs to another user.
+- `GlobalExceptionHandler` updated to turn `TaskNotFoundException` into a
+  `404` `ErrorResponse`, using the same `ErrorResponse` shape as every other
+  not-found exception.
+- The existing `Priority` (`LOW`/`MEDIUM`/`HIGH`) and `TaskStatus`
+  (`TODO`/`IN_PROGRESS`/`COMPLETED`) enums are used as-is; no duplicate enum
+  types or custom enum converters were introduced — Jackson serializes/
+  deserializes them as plain strings the normal way.
+- `TaskServiceTest` (Mockito, no database) covering: create assigns the
+  authenticated user as owner, list uses the authenticated user's ID,
+  getting an owned task succeeds, getting a missing/not-owned task throws
+  `TaskNotFoundException`, update changes the editable fields, delete calls
+  the repository delete operation, and a status-only update changes the
+  status while leaving title/description/priority unchanged.
+- `TaskControllerTest` (`@WebMvcTest`, real `SecurityConfig`) covering:
+  authenticated create returns `201`, unauthenticated request returns `401`,
+  invalid request returns `400`, a missing task returns `404`, the status
+  `PATCH` returns `200`, and delete returns `204`.
+
+**Explicitly not done in Phase 6 (intentionally out of scope):**
+
+- No Task filtering, search, pagination, or sorting framework.
+- No recurring Tasks or Task notifications.
+- No dashboard or productivity-analytics behavior.
+- No frontend work.
+- No roles, permissions, or Task sharing between users.
+
+---
+
 # Current Project Status
 
 The application currently supports:
@@ -630,6 +707,9 @@ The application currently supports:
   Event's `startTime`/`endTime` (frontend drag-and-drop/resize), which moves
   the whole series for a recurring event since recurrence expansion always
   reads the stored row's current times
+- Task CRUD (`/api/tasks`), scoped directly to the authenticated user's
+  `owner` column, plus a dedicated `PATCH /api/tasks/{id}/status` endpoint
+  for changing only a task's status
 
 Every endpoint other than `POST /api/auth/register`, `POST /api/auth/login`,
 and the Swagger/OpenAPI paths now requires a valid Bearer token.
@@ -638,24 +718,19 @@ and the Swagger/OpenAPI paths now requires a valid Bearer token.
 
 # Next Phase
 
-## Phase 6 — Task CRUD
-
-Goals:
-
-- Task CRUD, following the same ownership/service/controller structure as
-  Calendar, Category, and Event
+## Phase 7 — Dashboard
 
 Still undecided/deferred (not tied to a specific upcoming phase yet):
 
 - How calendar/category deletion interacts with existing events (deferred
   since Phase 4A/4B)
 - Reminder delivery — `reminderOffsetMinutes` remains stored/returned only
+- Task filtering/search/sorting, if a future phase decides it's needed
 
 ---
 
 # Remaining Planned Phases
 
-- **Phase 6** — Task CRUD.
 - **Phase 7** — Dashboard.
 - **Phase 8** — React frontend.
 - **Phase 9** — Testing, documentation, polish, screenshots, README
