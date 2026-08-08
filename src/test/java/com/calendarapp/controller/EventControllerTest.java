@@ -8,6 +8,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -27,6 +28,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.calendarapp.configuration.SecurityConfig;
 import com.calendarapp.dto.EventRequest;
 import com.calendarapp.dto.EventResponse;
+import com.calendarapp.dto.EventTimeUpdateRequest;
 import com.calendarapp.entity.RecurrenceType;
 import com.calendarapp.entity.User;
 import com.calendarapp.exception.EventNotFoundException;
@@ -141,6 +143,55 @@ class EventControllerTest {
                         .header("Authorization", "Bearer valid-token"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void authenticatedPatchTimeReturns200() throws Exception {
+        givenAuthenticatedUser(1L, "jane@example.com");
+        EventTimeUpdateRequest request = new EventTimeUpdateRequest(
+                LocalDateTime.of(2026, 1, 2, 9, 0), LocalDateTime.of(2026, 1, 2, 10, 0));
+
+        given(eventService.updateEventTime(eq(5L), any(EventTimeUpdateRequest.class), eq(1L)))
+                .willReturn(eventResponse());
+
+        mockMvc.perform(patch("/api/events/5/time")
+                        .header("Authorization", "Bearer valid-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(10));
+    }
+
+    @Test
+    void patchTimeWithMissingFieldsReturns400() throws Exception {
+        givenAuthenticatedUser(1L, "jane@example.com");
+        String blankFieldsJson = "{\"startTime\":null,\"endTime\":null}";
+
+        mockMvc.perform(patch("/api/events/5/time")
+                        .header("Authorization", "Bearer valid-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(blankFieldsJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.fieldErrors").isArray());
+    }
+
+    @Test
+    void patchTimeForMissingEventReturns404() throws Exception {
+        givenAuthenticatedUser(1L, "jane@example.com");
+        EventTimeUpdateRequest request = new EventTimeUpdateRequest(
+                LocalDateTime.of(2026, 1, 2, 9, 0), LocalDateTime.of(2026, 1, 2, 10, 0));
+
+        given(eventService.updateEventTime(eq(99L), any(EventTimeUpdateRequest.class), eq(1L)))
+                .willThrow(new EventNotFoundException());
+
+        mockMvc.perform(patch("/api/events/99/time")
+                        .header("Authorization", "Bearer valid-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.message").value("Event not found"));
     }
 
     @Test

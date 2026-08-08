@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import com.calendarapp.dto.EventRequest;
 import com.calendarapp.dto.EventResponse;
+import com.calendarapp.dto.EventTimeUpdateRequest;
 import com.calendarapp.entity.Calendar;
 import com.calendarapp.entity.Category;
 import com.calendarapp.entity.Event;
@@ -138,6 +139,21 @@ public class EventService {
     public void deleteEvent(Long eventId, Long ownerId) {
         Event event = findOwnedEvent(eventId, ownerId);
         eventRepository.delete(event);
+    }
+
+    // For drag/resize from the calendar UI: changes only startTime/endTime, leaving
+    // title, calendar, category, recurrenceType, and everything else untouched. For
+    // a recurring event, this moves the whole stored series, since recurrence
+    // expansion always recalculates occurrences from these same stored values.
+    public EventResponse updateEventTime(Long eventId, EventTimeUpdateRequest request, Long ownerId) {
+        Event event = findOwnedEvent(eventId, ownerId);
+        validateTimes(request.getStartTime(), request.getEndTime());
+
+        event.setStartTime(request.getStartTime());
+        event.setEndTime(request.getEndTime());
+
+        Event savedEvent = eventRepository.save(event);
+        return toResponse(savedEvent);
     }
 
     // Copies the simple, non-relationship fields from the request onto the entity.

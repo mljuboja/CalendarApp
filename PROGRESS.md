@@ -1,7 +1,7 @@
 # Project Progress
 
 This document is the authoritative status document for **Daymark**. It reflects
-the current state of the project as of the completion of Phase 5C.
+the current state of the project as of the completion of Phase 5D.
 
 ---
 
@@ -550,6 +550,61 @@ Phase 5C completed:
 
 ---
 
+## Phase 5D — Event Time Update (Drag/Resize) Endpoint
+
+Phase 5D completed:
+
+- `EventTimeUpdateRequest` DTO — only `startTime` and `endTime`, both
+  required (`@NotNull`). No other `Event` field can be changed through this
+  DTO.
+- `PATCH /api/events/{id}/time` (`EventController`) — a small, purpose-built
+  endpoint for frontend drag-and-drop/resize actions, returning `200 OK`
+  with the existing `EventResponse` on success. This is not a generic PATCH:
+  the full `PUT /api/events/{id}` endpoint from Phase 5A is unchanged and
+  remains the way to update any other field.
+- `EventService.updateEventTime(eventId, request, ownerId)` — reuses the
+  existing helpers exactly as they are, with no duplicated logic:
+  - `findOwnedEvent` for ownership (same `EventNotFoundException` on a
+    missing/not-owned event as every other Event operation)
+  - `validateTimes` for the `endTime > startTime` rule (same
+    `InvalidEventTimeException` as create/update/filtering)
+  - `toResponse` for mapping the saved entity back to `EventResponse`
+  - The method only calls `event.setStartTime(...)`/`event.setEndTime(...)`
+    before saving — title, description, location, calendar, category,
+    recurrence type, reminder offset, and all other fields are left exactly
+    as they were.
+- **Recurring events:** no recurrence-specific PATCH logic was added or is
+  needed. A recurring `Event` is still one stored row (Phase 5C), and
+  recurrence expansion always recalculates every occurrence from that row's
+  current `startTime`/`endTime`. Changing those two fields through this
+  endpoint therefore moves the entire recurring series at once — there is
+  still no "move this occurrence only" behavior, exactly as before this
+  phase.
+- No new repository methods, exceptions, generic PATCH/partial-update
+  infrastructure, or custom Bean Validation annotations were introduced.
+- `EventServiceTest` extended with: a valid owned-event time update succeeds
+  and returns the new times, an invalid range (`endTime` not after
+  `startTime`) throws `InvalidEventTimeException`, a missing/not-owned event
+  throws `EventNotFoundException`, and non-time fields (title, description,
+  location, recurrence type, calendar) are confirmed unchanged after the
+  update.
+- `EventControllerTest` extended with: an authenticated valid `PATCH`
+  returns `200`, a request missing `startTime`/`endTime` returns `400`, and
+  a missing/not-owned event returns `404`. No additional unauthenticated
+  test was added since the existing `GET /api/events` `401` test already
+  proves the `/api/events` endpoint group requires authentication.
+
+**Explicitly not done in Phase 5D (intentionally out of scope):**
+
+- No generic/partial `PATCH` for other `Event` fields.
+- No recurrence end dates, custom recurrence intervals, or recurrence
+  exceptions (editing/moving a single occurrence).
+- No reminder delivery, search, pagination, or Task CRUD.
+- Calendar/category deletion behavior when events still reference them (see
+  Phase 4A/4B) remains undecided.
+
+---
+
 # Current Project Status
 
 The application currently supports:
@@ -571,6 +626,10 @@ The application currently supports:
 - Recurring-event expansion (`DAILY`/`WEEKLY`/`MONTHLY`) for date-range
   `GET /api/events` queries, generated in memory only — one stored `Event`
   row still represents the entire recurring series
+- A dedicated `PATCH /api/events/{id}/time` endpoint for updating only an
+  Event's `startTime`/`endTime` (frontend drag-and-drop/resize), which moves
+  the whole series for a recurring event since recurrence expansion always
+  reads the stored row's current times
 
 Every endpoint other than `POST /api/auth/register`, `POST /api/auth/login`,
 and the Swagger/OpenAPI paths now requires a valid Bearer token.
@@ -579,20 +638,23 @@ and the Swagger/OpenAPI paths now requires a valid Bearer token.
 
 # Next Phase
 
-## Phase 5D — Remaining Advanced Event Features
+## Phase 6 — Task CRUD
 
 Goals:
 
-- Drag-and-drop reschedule endpoint
-- Decide how calendar/category deletion interacts with existing events
-- Reminder delivery
+- Task CRUD, following the same ownership/service/controller structure as
+  Calendar, Category, and Event
+
+Still undecided/deferred (not tied to a specific upcoming phase yet):
+
+- How calendar/category deletion interacts with existing events (deferred
+  since Phase 4A/4B)
+- Reminder delivery — `reminderOffsetMinutes` remains stored/returned only
 
 ---
 
 # Remaining Planned Phases
 
-- **Phase 5D** — Remaining advanced Event features (drag-and-drop
-  rescheduling, reminder delivery).
 - **Phase 6** — Task CRUD.
 - **Phase 7** — Dashboard.
 - **Phase 8** — React frontend.

@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.calendarapp.dto.EventRequest;
 import com.calendarapp.dto.EventResponse;
+import com.calendarapp.dto.EventTimeUpdateRequest;
 import com.calendarapp.entity.User;
 import com.calendarapp.service.EventService;
 
@@ -69,6 +71,15 @@ public class EventController {
             @PathVariable Long id, @Valid @RequestBody EventRequest request, Authentication authentication) {
         User user = (User) authentication.getPrincipal();
         return eventService.updateEvent(id, request, user.getId());
+    }
+
+    // For drag/resize on the calendar UI - changes only startTime/endTime, unlike
+    // the full PUT above.
+    @PatchMapping("/{id}/time")
+    public EventResponse updateEventTime(
+            @PathVariable Long id, @Valid @RequestBody EventTimeUpdateRequest request, Authentication authentication) {
+        User user = (User) authentication.getPrincipal();
+        return eventService.updateEventTime(id, request, user.getId());
     }
 
     @DeleteMapping("/{id}")

@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 
 import com.calendarapp.dto.EventRequest;
 import com.calendarapp.dto.EventResponse;
+import com.calendarapp.dto.EventTimeUpdateRequest;
 import com.calendarapp.entity.Calendar;
 import com.calendarapp.entity.Category;
 import com.calendarapp.entity.Event;
@@ -369,6 +370,54 @@ class EventServiceTest {
         EventResponse response = eventService.updateEvent(5L, request, 1L);
 
         assertThat(response.getCategoryId()).isNull();
+    }
+
+    @Test
+    void updateEventTimeChangesOnlyStartAndEndTime() {
+        User owner = userWith(1L);
+        Calendar calendar = calendarWith(2L, owner);
+        Event event = eventWith(5L, "Standup", calendar, null);
+        event.setDescription("Daily sync");
+        event.setLocation("Room 1");
+        event.setRecurrenceType(RecurrenceType.WEEKLY);
+
+        LocalDateTime newStart = START.plusDays(1);
+        LocalDateTime newEnd = END.plusDays(1);
+        EventTimeUpdateRequest request = new EventTimeUpdateRequest(newStart, newEnd);
+
+        when(eventRepository.findByIdAndCalendarOwnerId(5L, 1L)).thenReturn(Optional.of(event));
+        when(eventRepository.save(any(Event.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        EventResponse response = eventService.updateEventTime(5L, request, 1L);
+
+        assertThat(response.getStartTime()).isEqualTo(newStart);
+        assertThat(response.getEndTime()).isEqualTo(newEnd);
+        assertThat(response.getTitle()).isEqualTo("Standup");
+        assertThat(response.getDescription()).isEqualTo("Daily sync");
+        assertThat(response.getLocation()).isEqualTo("Room 1");
+        assertThat(response.getRecurrenceType()).isEqualTo(RecurrenceType.WEEKLY);
+        assertThat(response.getCalendarId()).isEqualTo(2L);
+    }
+
+    @Test
+    void updateEventTimeWithInvalidRangeThrowsInvalidEventTimeException() {
+        Calendar calendar = calendarWith(2L, userWith(1L));
+        Event event = eventWith(5L, "Standup", calendar, null);
+        EventTimeUpdateRequest request = new EventTimeUpdateRequest(END, START);
+
+        when(eventRepository.findByIdAndCalendarOwnerId(5L, 1L)).thenReturn(Optional.of(event));
+
+        assertThatThrownBy(() -> eventService.updateEventTime(5L, request, 1L))
+                .isInstanceOf(InvalidEventTimeException.class);
+    }
+
+    @Test
+    void updateEventTimeForMissingOrNotOwnedEventThrowsEventNotFoundException() {
+        EventTimeUpdateRequest request = new EventTimeUpdateRequest(START, END);
+        when(eventRepository.findByIdAndCalendarOwnerId(5L, 2L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> eventService.updateEventTime(5L, request, 2L))
+                .isInstanceOf(EventNotFoundException.class);
     }
 
     @Test
