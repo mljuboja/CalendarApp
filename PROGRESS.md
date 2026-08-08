@@ -1,7 +1,7 @@
 # Project Progress
 
 This document is the authoritative status document for **Daymark**. It reflects
-the current state of the project as of the completion of Phase 4B.
+the current state of the project as of the completion of Phase 5A.
 
 ---
 
@@ -310,6 +310,87 @@ Phase 5 implements Event CRUD.
 
 ---
 
+## Phase 5A — Basic Event CRUD
+
+Phase 5A completed:
+
+- `EventRequest` DTO (`title`, `description`, `location`, `startTime`,
+  `endTime`, `allDay`, `recurrenceType`, `reminderOffsetMinutes`,
+  `calendarId`, `categoryId`) — `title` required, `startTime`/`endTime`/
+  `calendarId` required via `@NotNull`/`@NotBlank`; `categoryId` optional.
+  Calendar/Category ownership and the `endTime > startTime` rule are checked
+  in `EventService`, not with Bean Validation, since they require the
+  authenticated user and the database.
+- `EventResponse` DTO — the event's own fields plus `calendarId`,
+  `calendarName`, `categoryId`, `categoryName`, `categoryColor`. No
+  `Calendar`/`Category`/`User` entities are ever returned; the category
+  fields are simply `null` when the event has no category.
+- `EventService` — create, list, get, update, delete, all scoped to the
+  authenticated user, following the same structure as `CalendarService`/
+  `CategoryService`:
+  - **Ownership through Calendar:** `Event` has no owner column of its own.
+    Every read/update/delete looks the event up by (event ID, calendar owner
+    ID) together, via `EventRepository.findByIdAndCalendarOwnerId`, so a user
+    can never touch an event whose calendar isn't theirs.
+  - **Create/update:** the requested `calendarId` is looked up with the
+    existing `CalendarRepository.findByIdAndOwnerId` (reused directly, not
+    through `CalendarService`) and must belong to the authenticated user, or
+    `CalendarNotFoundException` is thrown. If `categoryId` is supplied, the
+    same check runs against `CategoryRepository.findByIdAndOwnerId`, throwing
+    `CategoryNotFoundException` if it isn't owned by the caller. A `null`
+    `categoryId` clears the event's category.
+  - **Time validation:** after applying the requested calendar/category/times,
+    the service checks `endTime.isAfter(startTime)`; if not, it throws the
+    new `InvalidEventTimeException` ("Event end time must be after start
+    time").
+- `EventRepository.findByCalendarOwnerId(ownerId)` and
+  `findByIdAndCalendarOwnerId(id, ownerId)` added, derived by Spring Data
+  directly from the `Event → Calendar → User owner` relationship (no
+  in-Java filtering). The existing unused `findByCalendarId` was left as-is.
+- `EventController` (`/api/events`) — thin controller reading the
+  authenticated `User` from the `Authentication` parameter; no ownership or
+  database logic in the controller itself
+  - `POST /api/events` → `201 Created`
+  - `GET /api/events` → `200 OK` (only the caller's events)
+  - `GET /api/events/{id}` → `200 OK`
+  - `PUT /api/events/{id}` → `200 OK`
+  - `DELETE /api/events/{id}` → `204 No Content`
+- `EventNotFoundException` — generic "Event not found" message, used both
+  when an event doesn't exist and when it belongs to another user
+- `InvalidEventTimeException` — "Event end time must be after start time"
+- `GlobalExceptionHandler` updated to turn `EventNotFoundException` into a
+  `404` `ErrorResponse` and `InvalidEventTimeException` into a `400`
+  `ErrorResponse`
+- `EventServiceTest` (Mockito, no database) covering: create with an owned
+  calendar succeeds, create with another user's calendar throws
+  `CalendarNotFoundException`, an owned category can be assigned, another
+  user's category throws `CategoryNotFoundException`, an end time not after
+  the start time throws `InvalidEventTimeException`, list returns only that
+  user's events, getting another user's/a missing event throws
+  `EventNotFoundException`, update changes supported fields, setting
+  `categoryId` to `null` on update clears an existing category, delete calls
+  the repository delete operation
+- `EventControllerTest` (`@WebMvcTest`, real `SecurityConfig`) covering:
+  authenticated create returns `201`, unauthenticated request returns `401`,
+  invalid request returns `400`, a missing/not-owned event returns `404`,
+  delete returns `204`
+
+**Explicitly not done in Phase 5A (deferred to a later Event phase):**
+
+- Recurrence is stored as-is on the `RecurrenceType` enum column but is never
+  expanded — no repeated occurrences or future dates are generated, and no
+  extra rows are created for recurring events.
+- `reminderOffsetMinutes` is stored and returned but nothing schedules,
+  calculates, or delivers a reminder.
+- No date-range filtering, calendar/category filtering, or keyword search.
+- No drag-and-drop/reschedule `PATCH` endpoint.
+- The known limitation from Phase 4A (deleting a `Calendar` that still has
+  `Event` rows will now fail with a foreign-key violation, since events can
+  finally exist) is still unresolved by design — no cascade/reassignment
+  policy has been added yet.
+
+---
+
 # Current Project Status
 
 The application currently supports:
@@ -322,6 +403,9 @@ The application currently supports:
 - A protected `GET /api/users/me` endpoint
 - Calendar CRUD (`/api/calendars`), scoped to the authenticated user
 - Category CRUD (`/api/categories`), scoped to the authenticated user
+- Basic Event CRUD (`/api/events`), scoped to the authenticated user through
+  Calendar ownership, with Calendar/Category ownership validated whenever an
+  event references them
 
 Every endpoint other than `POST /api/auth/register`, `POST /api/auth/login`,
 and the Swagger/OpenAPI paths now requires a valid Bearer token.
@@ -330,22 +414,22 @@ and the Swagger/OpenAPI paths now requires a valid Bearer token.
 
 # Next Phase
 
-## Phase 5 — Event CRUD
+## Phase 5B — Advanced Event Features
 
 Goals:
 
-- Event DTOs
-- `EventService`
-- Event CRUD endpoints, scoped to the authenticated user's calendars
-- Decide how calendar deletion interacts with existing events (see the
-  known limitation noted under Phase 4A)
-- Event tests
+- Recurring-event expansion
+- Date-range/calendar/category filtering
+- Drag-and-drop reschedule endpoint
+- Decide how calendar/category deletion interacts with existing events
+- Reminder delivery
 
 ---
 
 # Remaining Planned Phases
 
-- **Phase 5** — Event CRUD.
+- **Phase 5B** — Advanced Event features (recurrence expansion, filtering,
+  reminders).
 - **Phase 6** — Task CRUD.
 - **Phase 7** — Dashboard.
 - **Phase 8** — React frontend.
