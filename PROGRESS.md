@@ -858,15 +858,13 @@ Phase 8B completed:
   frontend yet).
 - No Dashboard/Calendar/Task feature UI — those pages are still placeholders.
 
-**Known gap carried forward:** the frontend now makes real browser requests
-to the backend (login/register) from `http://localhost:5173` to
-`http://localhost:8080`. No CORS configuration exists in `SecurityConfig` or
-anywhere else in the backend yet (confirmed by inspection), so these
-cross-origin requests will fail in an actual browser until CORS is
-configured. This was intentionally deferred through Phase 8A/8B per explicit
-instruction to avoid backend changes in those phases; it should be addressed
-as the first order of business in a near-term phase, since Phase 8B's forms
-cannot actually succeed against a real browser without it.
+**Known gap at the end of Phase 8B (resolved after Phase 8C — see below):**
+at the time Phase 8B was written, the frontend made real browser requests to
+the backend (login/register) from `http://localhost:5173` to
+`http://localhost:8080` with no CORS configuration in the backend, so these
+cross-origin requests would have failed in an actual browser. CORS was
+configured immediately after Phase 8C (see "CORS Configuration" below), so
+this is no longer an open gap.
 
 ---
 
@@ -903,9 +901,34 @@ Phase 8C completed:
 - No auth context or automatic 401 handling — if the JWT is missing/invalid,
   the request simply fails and the existing generic error message is shown.
 - No backend changes.
-- The CORS gap noted under Phase 8B still applies: this page's
-  `GET /api/dashboard` call will fail in an actual browser until the backend
-  has CORS configured.
+
+---
+
+## CORS Configuration (local Vite ↔ Spring Boot)
+
+Immediately after Phase 8C, standard Spring Security CORS support was added
+to `SecurityConfig` so the frontend's real API calls (login, register,
+dashboard) can actually succeed from a browser:
+
+- A `CorsConfigurationSource` bean only allows the local Vite dev server's
+  exact origin, `http://localhost:5173` — no wildcard (`*`) origin.
+- Allowed methods: `GET`, `POST`, `PUT`, `PATCH`, `DELETE` (everything this
+  API currently uses).
+- Allowed headers: `Authorization` and `Content-Type` (everything the
+  frontend currently sends).
+- `.cors(cors -> cors.configurationSource(corsConfigurationSource()))` was
+  added to the existing `SecurityFilterChain` alongside the existing
+  `.csrf()`/`.sessionManagement()`/etc. calls. No other line in
+  `SecurityFilterChain` changed — `authorizeHttpRequests`, the JWT filter,
+  and the JWT entry point are all unchanged, so authentication/authorization
+  behavior is identical to before.
+- No new CORS framework, filter, or `@CrossOrigin` annotations were
+  introduced — this is Spring Security's standard, built-in CORS support.
+- `mvn test` passes with the same 107 tests, 0 failures, confirming no
+  existing security/auth behavior regressed.
+
+This was the one backend change made specifically to support the frontend
+work in Phase 8A–8C; no other backend code was modified for those phases.
 
 ---
 
@@ -954,9 +977,10 @@ visitors to `/login`), with a Logout button that clears the token.
 `DashboardPage` is now connected to the real `GET /api/dashboard` endpoint
 and displays today's Events, upcoming Tasks, completed Task count, and
 scheduled hours today. `CalendarPage` and `TasksPage` are still placeholder
-content — no feature UI or real data has been built for them yet — and the
-backend still has no CORS configuration, so none of these frontend requests
-actually succeed from a real browser yet.
+content — no feature UI or real data has been built for them yet. The
+backend now has standard Spring Security CORS configuration allowing the
+local Vite dev server (`http://localhost:5173`), so the frontend's real API
+calls (login, register, dashboard) can succeed from an actual browser.
 
 ---
 
@@ -966,10 +990,6 @@ actually succeed from a real browser yet.
 
 Still undecided/deferred (not tied to a specific upcoming phase yet):
 
-- CORS configuration for the backend — required before any frontend request
-  (login, register, dashboard, or otherwise) can actually succeed from a
-  browser; deferred through Phase 8A/8B/8C by explicit instruction but now a
-  blocker
 - How calendar/category deletion interacts with existing events (deferred
   since Phase 4A/4B)
 - Reminder delivery — `reminderOffsetMinutes` remains stored/returned only

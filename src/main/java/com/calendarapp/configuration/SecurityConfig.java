@@ -1,5 +1,7 @@
 package com.calendarapp.configuration;
 
+import java.util.List;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -10,6 +12,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.calendarapp.security.JwtAuthenticationEntryPoint;
 import com.calendarapp.security.JwtAuthenticationFilter;
@@ -43,6 +48,8 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 // No server-side sessions - each request carries its own JWT.
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // Lets the local Vite dev server call this API from a different origin.
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 // This is a REST API, so skip the default login page and basic auth popup.
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
@@ -63,5 +70,19 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    // Allows the local React/Vite dev server to call this API during development.
+    // Only the specific local Vite origin is allowed - no wildcard "*".
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 }
