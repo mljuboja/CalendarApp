@@ -1,7 +1,8 @@
 # Project Progress
 
 This document is the authoritative status document for **Daymark**. It reflects
-the current state of the project as of the completion of Phase 7.
+the current state of the project as of the completion of Phase 8E-6, with
+Phase 9 (testing, documentation, and polish) next.
 
 ---
 
@@ -28,10 +29,11 @@ and document a project like this, not an enterprise-scale system.
 - Bean Validation
 - Swagger / OpenAPI
 
-### Frontend (planned)
+### Frontend
 
 - React
-- TypeScript
+- JavaScript
+- Vite
 - React Router
 - Axios
 - FullCalendar

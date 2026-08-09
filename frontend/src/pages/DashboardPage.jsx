@@ -51,7 +51,9 @@ function DashboardPage() {
           <ul className="dashboard-list">
             {dashboard.todaysEvents.map((event) => (
               <li key={`${event.id}-${event.startTime}`}>
-                <strong>{event.title}</strong> — {event.startTime} to {event.endTime}
+                <strong>{event.title}</strong> —{' '}
+                {new Date(event.startTime).toLocaleString()} to{' '}
+                {new Date(event.endTime).toLocaleString()}
               </li>
             ))}
           </ul>
