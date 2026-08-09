@@ -534,3 +534,9 @@ a:hover {
 .management-actions button:hover {
   background: #f4f3ec;
 }
+
+.visual-calendar {
+  max-width: 900px;
+  margin-bottom: 24px;
+  font-size: 14px;
+}

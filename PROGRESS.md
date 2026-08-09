@@ -1273,6 +1273,109 @@ Phase 8E-4 completed:
 
 ---
 
+## Phase 8E-5 — Visual Calendar View
+
+Phase 8E-5 completed:
+
+- Added the official FullCalendar React packages:
+  `@fullcalendar/react`, `@fullcalendar/core`, `@fullcalendar/daygrid` (no
+  interaction/drag-and-drop plugins).
+- `CalendarPage` now renders a `<FullCalendar>` month view
+  (`initialView="dayGridMonth"`, `dayGridPlugin` only) above the existing
+  "Add an Event" form and event list.
+- The calendar's `datesSet` callback (fired whenever the visible month
+  changes, including on initial render) reads the visible range's
+  `startStr`/`endStr` and calls the existing
+  `GET /api/events?start=...&end=...`, which the backend already expands
+  into individual recurring occurrences for that date range — no
+  recurrence math was added on the frontend.
+- The returned `EventResponse` list is stored in a new `visibleEvents`
+  state and mapped directly to FullCalendar's expected shape
+  (`id`, `title`, `start`, `end`, `color`) inline in the `datesSet`
+  handler — no reusable mapping layer or adapter was created. Since
+  recurring occurrences share the same backend `id`, each mapped event's
+  `id` is `${event.id}-${event.startTime}` to keep FullCalendar's client-
+  side ids unique; backend ids are untouched. `color` uses the event's
+  `categoryColor` if present, otherwise falls back to the matching
+  calendar's `color` (looked up from the already-loaded `calendars`
+  state).
+- A separate `visibleEventsErrorMessage` shows a simple error if the
+  range fetch fails, independent of the page's other error states.
+- Clicking a calendar event does nothing yet (no edit modal); no date-
+  click creation, filtering controls, or view switcher were added.
+- The existing event list, event create/edit/delete forms, and Calendar/
+  Category management sections all continue to work unchanged and
+  independently of the new visual calendar's own data fetch.
+- Minimal CSS (`.visual-calendar`) was added to `index.css` just to size
+  and space the calendar on the page; FullCalendar v6 ships its own
+  default styles so no CSS files needed to be imported separately.
+- `npm run build` passes with no errors.
+
+**Explicitly not done in Phase 8E-5 (intentionally out of scope):**
+
+- No week or day view, and no view switcher.
+- No drag-and-drop or event resizing (no interaction plugin installed).
+- No event-click editing or date-click creation.
+- No filtering controls.
+- No recurrence calculations in React — the backend's existing expansion
+  is reused as-is.
+- No new backend endpoints or backend changes.
+
+---
+
+## Phase 8E-6 — Calendar Drag and Resize
+
+Phase 8E-6 completed:
+
+- Added `@fullcalendar/interaction` and included `interactionPlugin`
+  alongside `dayGridPlugin` in the `<FullCalendar>` `plugins` prop.
+- `editable={true}` is set on `<FullCalendar>`, enabling drag-to-move and
+  resize-to-change-duration on calendar events.
+- When mapping each `EventResponse` occurrence to a FullCalendar event
+  object (in the existing `datesSet` handler), the real backend `Event` id
+  is now stored in `extendedProps: { eventId: event.id }`, separate from
+  the display `id` (`${event.id}-${event.startTime}`) used to keep
+  recurring occurrences unique on the client — backend ids are never
+  parsed out of that string.
+- A single `handleEventChange` handler is wired to both `eventDrop` and
+  `eventResize` (FullCalendar passes both callbacks the same `info.event`/
+  `info.revert()` shape, so one handler covers both straightforwardly). It
+  reads `info.event.extendedProps.eventId`, converts the event's new
+  `start`/`end` to the backend's expected format with a small local
+  `formatDateForApi` helper (uses the `Date` object's local time fields
+  with manual zero-padding — no date library), and calls
+  `PATCH /api/events/{id}/time` with a body containing only `startTime`
+  and `endTime`, matching `EventTimeUpdateRequest` exactly.
+- On success, the moved/resized event is updated in both the `events`
+  state (matched by backend id, same `map` pattern used by the existing
+  edit forms) and the `visibleEvents` state (matched by the FullCalendar
+  display id, so the calendar keeps showing the new position without a
+  refetch).
+- On failure, a `visibleEventsErrorMessage` shows the backend's message
+  (or a generic fallback) and `info.revert()` is called to snap the event
+  back to its original position/size — FullCalendar's own built-in
+  mechanism, not a custom rollback system.
+- Dragging or resizing a recurring occurrence simply calls the same
+  `PATCH /api/events/{id}/time` endpoint with the shared backend Event id,
+  which updates the whole stored series per existing backend behavior — no
+  "edit one occurrence" or recurrence-exception logic was added on the
+  frontend.
+- The existing visual month view, event list, event create/edit/delete
+  forms, and Calendar/Category management sections were not changed and
+  continue to work as before.
+- `npm run build` passes with no errors.
+
+**Explicitly not done in Phase 8E-6 (intentionally out of scope):**
+
+- No week/day views or view switcher.
+- No event-click editing or date-click creation.
+- No filtering controls or recurrence-specific UI.
+- No custom rollback/state-management framework — `info.revert()` is used
+  directly.
+- No backend changes.
+
+---
+
 # Current Project Status
 
 The application currently supports:
@@ -1334,7 +1437,13 @@ and supports the full set of event actions from the UI: creating an event
 Category management sections (create, inline edit, and delete with
 confirmation, hitting `/api/calendars` and `/api/categories`), which the
 event forms' `<select>` options automatically reflect since they share the
-same state. The backend now has standard Spring Security CORS
+same state. `CalendarPage` additionally renders a FullCalendar month view
+that re-fetches `GET /api/events` with the visible date range whenever the
+month changes, relying on the backend's existing recurring-event expansion
+rather than any client-side recurrence logic, and now supports dragging
+and resizing events directly on that calendar (`PATCH /api/events/{id}/time`
+via `eventDrop`/`eventResize`, with `info.revert()` on failure). The
+backend now has standard Spring Security CORS
 configuration allowing the local Vite dev server
 (`http://localhost:5173`), so the frontend's real API calls (login,
 register, dashboard, tasks, events) can succeed from an actual browser.
@@ -1343,7 +1452,7 @@ register, dashboard, tasks, events) can succeed from an actual browser.
 
 # Next Phase
 
-## Phase 8E-5 — Visual Calendar View
+## Phase 9 — Testing, Documentation, and Polish
 
 Still undecided/deferred (not tied to a specific upcoming phase yet):
 
@@ -1356,7 +1465,6 @@ Still undecided/deferred (not tied to a specific upcoming phase yet):
 
 # Remaining Planned Phases
 
-- **Phase 8E-5** — Visual (month/week/day) calendar view for `CalendarPage`.
 - **Phase 9** — Testing, documentation, polish, screenshots, README
   improvements, and deployment preparation.
 

@@ -1,5 +1,19 @@
 import { useEffect, useState } from 'react';
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import interactionPlugin from '@fullcalendar/interaction';
 import apiClient from '../api/apiClient';
+
+// Formats a JS Date using its local time fields (not UTC, unlike
+// toISOString) into the "YYYY-MM-DDTHH:mm:ss" shape the backend expects,
+// matching the same format the datetime-local inputs already send.
+function formatDateForApi(date) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+  );
+}
 
 function CalendarPage() {
   const [events, setEvents] = useState([]);
@@ -8,6 +22,9 @@ function CalendarPage() {
 
   const [calendars, setCalendars] = useState([]);
   const [categories, setCategories] = useState([]);
+
+  const [visibleEvents, setVisibleEvents] = useState([]);
+  const [visibleEventsErrorMessage, setVisibleEventsErrorMessage] = useState('');
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -300,6 +317,66 @@ function CalendarPage() {
     }
   }
 
+  async function handleDatesSet(dateInfo) {
+    setVisibleEventsErrorMessage('');
+
+    try {
+      const response = await apiClient.get('/api/events', {
+        params: {
+          start: dateInfo.startStr,
+          end: dateInfo.endStr,
+        },
+      });
+
+      const fullCalendarEvents = response.data.map((event) => {
+        const calendar = calendars.find((c) => c.id === event.calendarId);
+        const color = event.categoryColor || calendar?.color;
+
+        return {
+          id: `${event.id}-${event.startTime}`,
+          title: event.title,
+          start: event.startTime,
+          end: event.endTime,
+          color,
+          extendedProps: {
+            eventId: event.id,
+          },
+        };
+      });
+
+      setVisibleEvents(fullCalendarEvents);
+    } catch (error) {
+      setVisibleEventsErrorMessage(error.response?.data?.message || 'Something went wrong');
+    }
+  }
+
+  async function handleEventChange(info) {
+    setVisibleEventsErrorMessage('');
+
+    const eventId = info.event.extendedProps.eventId;
+    const newStartTime = formatDateForApi(info.event.start);
+    const newEndTime = formatDateForApi(info.event.end || info.event.start);
+
+    try {
+      const response = await apiClient.patch(`/api/events/${eventId}/time`, {
+        startTime: newStartTime,
+        endTime: newEndTime,
+      });
+
+      setEvents(events.map((event) => (event.id === eventId ? response.data : event)));
+      setVisibleEvents(
+        visibleEvents.map((visibleEvent) =>
+          visibleEvent.id === info.event.id
+            ? { ...visibleEvent, start: response.data.startTime, end: response.data.endTime }
+            : visibleEvent
+        )
+      );
+    } catch (error) {
+      setVisibleEventsErrorMessage(error.response?.data?.message || 'Something went wrong');
+      info.revert();
+    }
+  }
+
   if (isLoading) {
     return (
       <div>
@@ -321,6 +398,21 @@ function CalendarPage() {
   return (
     <div>
       <h2>Calendar</h2>
+
+      <div className="visual-calendar">
+        <FullCalendar
+          plugins={[dayGridPlugin, interactionPlugin]}
+          initialView="dayGridMonth"
+          events={visibleEvents}
+          datesSet={handleDatesSet}
+          editable={true}
+          eventDrop={handleEventChange}
+          eventResize={handleEventChange}
+          height="auto"
+        />
+      </div>
+
+      {visibleEventsErrorMessage && <p className="form-error">{visibleEventsErrorMessage}</p>}
 
       {calendars.length === 0 ? (
         <p>Create a calendar before adding an event.</p>
