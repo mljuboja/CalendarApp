@@ -1,8 +1,9 @@
 # Project Progress
 
 This document is the authoritative status document for **Daymark**. It reflects
-the current state of the project as of the completion of Phase 8E-6, with
-Phase 9 (testing, documentation, and polish) next.
+the current state of the project as of the completion of Phase 9B
+(end-to-end verification), with Phase 9C (remaining testing, documentation,
+and polish) next.
 
 ---
 
@@ -1452,9 +1453,43 @@ register, dashboard, tasks, events) can succeed from an actual browser.
 
 ---
 
+## Phase 9B — End-to-End Verification
+
+Phase 9B was a verification-only phase — no application code was changed.
+
+**Automated verification:**
+
+- `mvn test` — 107 tests, 0 failures, 0 errors, `BUILD SUCCESS`.
+- `npm run build` (frontend) — succeeded (`vite build`, 96 modules
+  transformed, no errors; only Vite's informational chunk-size-warning
+  output, no code changes needed).
+- `npm run lint` (frontend, `oxlint`) — no errors or warnings reported.
+
+**Code-path tracing:** the major frontend/backend flows were traced together
+by reading the actual source (not assumed from prior phase notes):
+Authentication (register, login, JWT storage, the Axios request
+interceptor's `Authorization` header, `ProtectedRoute`, logout), Dashboard,
+Task CRUD + status change, Calendar CRUD, Category CRUD, Event CRUD
+(including calendar/category selection, recurrence, reminder offset), and
+the visual calendar (month view, visible-range fetching, backend-supplied
+recurring occurrences, drag/resize via `PATCH /api/events/{id}/time`, and
+`info.revert()` on failure). Every area traced was classified PASS or
+MANUAL CHECK — no FAIL (genuine bug) was found. Frontend/backend connection
+configuration (API base URL, backend port, CORS, JWT header, public vs.
+protected routes) was also confirmed correct as-is; nothing needed to
+change.
+
+**Not yet done as of Phase 9B:** the interactive, in-browser confirmation of
+these flows has not yet been performed — only the code paths were traced.
+That interactive pass is expected to be carried out using the manual
+browser checklist produced during this phase. Phase 9C (remaining
+testing/documentation/polish work) has not started.
+
+---
+
 # Next Phase
 
-## Phase 9 — Testing, Documentation, and Polish
+## Phase 9C — Remaining Testing, Documentation, and Polish
 
 Still undecided/deferred (not tied to a specific upcoming phase yet):
 
@@ -1467,8 +1502,9 @@ Still undecided/deferred (not tied to a specific upcoming phase yet):
 
 # Remaining Planned Phases
 
-- **Phase 9** — Testing, documentation, polish, screenshots, README
-  improvements, and deployment preparation.
+- **Phase 9C** — Remaining testing, documentation, polish, screenshots,
+  README improvements, and deployment preparation. (Phase 9B, end-to-end
+  code-path verification, is complete — see above.)
 
 ---
 
