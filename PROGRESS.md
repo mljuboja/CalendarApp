@@ -1487,6 +1487,88 @@ testing/documentation/polish work) has not started.
 
 ---
 
+## Phase 9B Bug Fix — Dashboard/Calendar 500 Error (PostgreSQL Parameter Type)
+
+While actually running the app locally to work through the Phase 9B manual
+browser checklist, logging in and loading the Dashboard consistently failed
+with a `401 Unauthorized` on `GET /api/dashboard`.
+
+**Initial (incorrect) suspicion — JWT authentication:** the symptoms (login
+succeeds, token is stored and sent as `Authorization: Bearer <token>`, CORS
+preflight succeeds, but the very next authenticated request immediately gets
+`401`, even with a brand-new token after logging out and back in) looked like
+a JWT validation bug. A full trace of `JwtAuthenticationFilter`, `JwtService`,
+`JwtProperties`, `AuthenticationService.login()`, `UserRepository`, and
+`SecurityConfig` found no bug — `JWT_EXPIRATION_MILLISECONDS` was confirmed
+to be a normal `3600000` (1 hour), ruling out immediate token expiration. A
+temporary diagnostic log line was added to `JwtAuthenticationFilter`'s
+existing (previously silent) `catch (JwtException | IllegalArgumentException
+e)` block to print the exception class and message, and `mvn test` was
+re-run to confirm nothing broke (still 107 tests passing). That diagnostic
+was later removed once the real cause was found (see below) — JWT
+authentication was never actually the problem.
+
+**Actual root cause — PostgreSQL couldn't determine a parameter's type:**
+the backend log actually showed a SQL error, not a JWT error:
+
+```
+ERROR: could not determine data type of parameter $6
+SQLState: 42P18
+```
+
+thrown from `EventService.listEvents` via
+`EventRepository.findByCalendarOwnerIdAndFilters` — the JPQL query backing
+`GET /api/events`/`GET /api/dashboard`'s date-range filtering (added in
+Phase 5B/5C). That query's optional date-range filter used a pattern like
+`(:start IS NULL OR (... e.startTime < :end AND e.endTime > :start ...))`.
+When Hibernate turns `:start` into a plain `?` in the real SQL, PostgreSQL
+tries to figure out that placeholder's data type purely from its
+surrounding SQL syntax, before any value is ever bound. Most of the
+query's other `?` placeholders sit right next to a typed column in a `=`
+comparison, so Postgres can infer their type fine — but the first `:start`
+placeholder appears completely on its own in `? IS NULL`, with nothing to
+compare it to, so Postgres has no way to know what type it should be. That
+specific placeholder landed in the 6th position of the generated SQL,
+matching the `$6` in the error.
+
+**Fix:** `EventRepository.findByCalendarOwnerIdAndFilters`'s `@Query` was
+updated to explicitly `CAST(:start AS timestamp)`/`CAST(:end AS timestamp)`
+everywhere those two parameters are used, removing the ambiguity so
+Postgres always knows their type up front. No other part of the query, the
+method signature, or `EventService`/`EventController` changed — the
+filtering behavior (date-range overlap, recurrence expansion) is identical
+to before, just with an explicit type hint added for Postgres. This is the
+standard, commonly-documented fix for this exact
+`could not determine data type of parameter $N` PostgreSQL/Hibernate error
+with nullable date/time JPQL parameters.
+
+**Test added:** `PostgresIntegrationTests.dateRangeFilterQueryRunsAgainstRealPostgres`
+— a focused regression test that calls
+`findByCalendarOwnerIdAndFilters` with a real date range against an actual
+running PostgreSQL database and asserts it doesn't throw. This had to be an
+integration test (tagged `integration`, excluded from the normal `mvn test`
+run, same as the rest of `PostgresIntegrationTests`) rather than a Mockito
+unit test, since a mocked repository never sends real SQL and can't
+reproduce a database-level type-inference error.
+
+**Verification after the fix:**
+- `mvn test` — 107 tests, 0 failures, 0 errors, `BUILD SUCCESS` (unchanged
+  from before; the new test is excluded from this run).
+- `mvn test -DexcludedGroups=` (with PostgreSQL running via
+  `docker compose up -d` and `.env` loaded) —
+  `PostgresIntegrationTests`: 3 tests, 0 failures, 0 errors, `BUILD SUCCESS`,
+  including the new regression test, confirming the real query now runs
+  against real PostgreSQL without error.
+
+**Files changed:**
+- `src/main/java/com/calendarapp/repository/EventRepository.java` (the fix)
+- `src/main/java/com/calendarapp/security/JwtAuthenticationFilter.java`
+  (temporary diagnostic added, then removed — no net change)
+- `src/test/java/com/calendarapp/PostgresIntegrationTests.java`
+  (regression test added)
+
+---
+
 # Next Phase
 
 ## Phase 9C — Remaining Testing, Documentation, and Polish

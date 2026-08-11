@@ -73,8 +73,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     new UsernamePasswordAuthenticationToken(user, null, Collections.emptyList());
             SecurityContextHolder.getContext().setAuthentication(authentication);
         } catch (JwtException | IllegalArgumentException e) {
-            // TEMPORARY DIAGNOSTIC - remove after the 401 bug is found.
-            System.out.println("JWT validation failed: " + e.getClass().getSimpleName() + " - " + e.getMessage());
             // Token missing, malformed, expired, or has a bad signature - leave
             // the request unauthenticated.
         }

@@ -2,6 +2,8 @@ package com.calendarapp;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.LocalDateTime;
+
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,5 +59,23 @@ class PostgresIntegrationTests {
         assertThat(categoryRepository.findAll()).isNotNull();
         assertThat(eventRepository.findAll()).isNotNull();
         assertThat(taskRepository.findAll()).isNotNull();
+    }
+
+    // Regression test for a real bug: PostgreSQL couldn't determine the data type
+    // of the "start"/"end" date-range parameters in
+    // EventRepository.findByCalendarOwnerIdAndFilters when they were compared with
+    // "IS NULL" instead of a typed column, and threw
+    // "could not determine data type of parameter $N" (SQLState 42P18). This can
+    // only be caught by actually running the query against a real Postgres
+    // database - a Mockito-based unit test never sends real SQL, so it can't
+    // reproduce this. No test data is needed; this just proves the query itself is
+    // valid SQL that Postgres can run with a real date range.
+    @Test
+    void dateRangeFilterQueryRunsAgainstRealPostgres() {
+        LocalDateTime start = LocalDateTime.now();
+        LocalDateTime end = start.plusDays(1);
+
+        assertThat(eventRepository.findByCalendarOwnerIdAndFilters(-1L, null, null, start, end))
+                .isNotNull();
     }
 }

@@ -30,15 +30,23 @@ public interface EventRepository extends JpaRepository<Event, Long> {
     // a candidate whenever that stored startTime is before the requested end - it
     // doesn't matter how long ago it started. EventService then works out exactly
     // which generated occurrences actually fall in the range.
+    //
+    // start/end are CAST to timestamp explicitly because PostgreSQL cannot always
+    // figure out a bind parameter's data type on its own when that parameter is
+    // compared with "IS NULL" instead of a typed column (e.g. "(:start IS NULL OR
+    // ...)") - without the cast, Postgres throws "could not determine data type of
+    // parameter $N" for that parameter. Casting removes the ambiguity. calendarId/
+    // categoryId don't need this because Postgres can already infer their type from
+    // the "= :calendarId"/"= :categoryId" comparisons elsewhere in the same clause.
     @Query("SELECT e FROM Event e LEFT JOIN e.category c "
             + "WHERE e.calendar.owner.id = :ownerId "
             + "AND (:calendarId IS NULL OR e.calendar.id = :calendarId) "
             + "AND (:categoryId IS NULL OR c.id = :categoryId) "
-            + "AND (:start IS NULL OR ("
+            + "AND (CAST(:start AS timestamp) IS NULL OR ("
             + "(e.recurrenceType = com.calendarapp.entity.RecurrenceType.NONE "
-            + "AND e.startTime < :end AND e.endTime > :start) "
+            + "AND e.startTime < CAST(:end AS timestamp) AND e.endTime > CAST(:start AS timestamp)) "
             + "OR (e.recurrenceType <> com.calendarapp.entity.RecurrenceType.NONE "
-            + "AND e.startTime < :end)"
+            + "AND e.startTime < CAST(:end AS timestamp))"
             + "))")
     List<Event> findByCalendarOwnerIdAndFilters(
             @Param("ownerId") Long ownerId,
